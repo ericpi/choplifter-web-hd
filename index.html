@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Choplifter HD</title>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BFHFDEFX4Y"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BFHFDEFX4Y');
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
 
@@ -65,7 +74,9 @@
         }
 
         #start-screen,
-        #game-over-screen {
+        #game-over-screen,
+        #level-screen,
+        #victory-screen {
             position: absolute;
             top: 0;
             left: 0;
@@ -84,6 +95,7 @@
             font-size: 80px;
             margin: 0 0 20px 0;
             background: linear-gradient(to bottom, #fff, #888);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
@@ -141,7 +153,7 @@
                 <div id="lives-display">LIVES: 3</div>
             </div>
             <div class="hud-bottom">
-                <div id="hostages-display">HOSTAGES: 0 / 0</div>
+                <div id="hostages-display">HOSTAGES: 0 / 6</div>
             </div>
         </div>
 
@@ -150,6 +162,18 @@
             <p style="font-size: 20px; color: #aaa; margin-bottom: 40px;">WASD to Fly | SPACE to Shoot | F for
                 Fullscreen</p>
             <button class="btn" id="start-btn">DEPLOY</button>
+        </div>
+
+        <div id="level-screen" class="hidden">
+            <h1 id="level-title">MISSION COMPLETE</h1>
+            <p style="font-size: 24px; margin-bottom: 30px;">PREPARING NEXT SORTIE...</p>
+        </div>
+
+        <div id="victory-screen" class="hidden">
+            <h1>VICTORY</h1>
+            <p style="font-size: 24px; margin-bottom: 30px;">ALL MISSIONS ACCOMPLISHED</p>
+            <p id="vic-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
+            <button class="btn" id="vic-restart-btn">PLAY AGAIN</button>
         </div>
 
         <div id="game-over-screen" class="hidden">
@@ -163,7 +187,7 @@
         // --- CONSTANTS & CONFIG ---
         const CANVAS_WIDTH = 1920;
         const CANVAS_HEIGHT = 1080;
-        const GRAVITY = 0.15;
+        const GRAVITY = 0.075; // Reduced by 50% from 0.15
         const FRICTION = 0.98;
         const THRUST_POWER = 0.3;
         const ROTATION_SPEED = 0.05;
@@ -210,7 +234,7 @@
                 this.accumulatedTime = 0;
                 this.step = 1 / 60;
 
-                this.state = 'MENU'; // MENU, PLAYING, GAMEOVER
+                this.state = 'MENU';
                 this.stage = 1;
                 this.score = 0;
                 this.lives = 3;
@@ -221,13 +245,18 @@
                 // Bind UI
                 this.startScreen = document.getElementById('start-screen');
                 this.gameOverScreen = document.getElementById('game-over-screen');
+                this.levelScreen = document.getElementById('level-screen');
+                this.victoryScreen = document.getElementById('victory-screen');
+
                 this.startBtn = document.getElementById('start-btn');
                 this.restartBtn = document.getElementById('restart-btn');
+                this.vicRestartBtn = document.getElementById('vic-restart-btn');
 
                 this.startBtn.addEventListener('click', () => this.startLevel(1));
                 this.restartBtn.addEventListener('click', () => this.startLevel(1));
+                this.vicRestartBtn.addEventListener('click', () => this.startLevel(1));
 
-                // Resize handler to keep aspect ratio
+                // Resize handler
                 window.addEventListener('resize', () => this.handleResize());
                 this.handleResize();
 
@@ -255,34 +284,71 @@
                 this.state = 'PLAYING';
                 this.startScreen.classList.add('hidden');
                 this.gameOverScreen.classList.add('hidden');
+                this.levelScreen.classList.add('hidden');
+                this.victoryScreen.classList.add('hidden');
 
                 // Reset entities
                 this.entities = [];
                 this.particles = [];
                 this.hostagesRescued = 0;
-                this.hostagesTotal = 0;
+                this.hostagesTotal = 6; // Fixed 6 per level
 
                 // Add Player
                 this.player = new Helicopter(this);
-                this.player.lastShot = 0; // Initialize lastShot
+                this.player.lastShot = 0;
                 this.entities.push(this.player);
 
                 // Generate Level
-                // Hostages
-                for (let i = 0; i < 5 + level; i++) {
-                    // Random positions between 1000 and 19000
-                    const hx = 1000 + Math.random() * 18000;
+                // Hostages - Fixed 6
+                for (let i = 0; i < 6; i++) {
+                    const hx = 2000 + Math.random() * 16000;
                     this.entities.push(new Hostage(this, hx));
-                    this.hostagesTotal++;
                 }
 
-                // Enemies
+                // Enemies - Increase with level
                 for (let i = 0; i < 3 + level; i++) {
                     const tx = 1500 + Math.random() * 17000;
                     this.entities.push(new Tank(this, tx));
                 }
 
+                // Setup Environment
+                this.setupEnvironment(level);
+
                 this.updateUI();
+            }
+
+            setupEnvironment(level) {
+                // Cycle: Dawn(0), Day(1), Dusk(2), Night(3)
+                const cycle = (level - 1) % 4;
+                this.timeOfDay = ['DAWN', 'DAY', 'DUSK', 'NIGHT'][cycle];
+
+                // Celestial Body
+                this.celestial = {
+                    type: (this.timeOfDay === 'NIGHT' || this.timeOfDay === 'DAWN') ? 'MOON' : 'SUN',
+                    x: Math.random() * CANVAS_WIDTH,
+                    y: Math.random() * (CANVAS_HEIGHT / 3),
+                    radius: 40 + Math.random() * 40,
+                    phase: Math.random(), // For moon
+                    color: this.timeOfDay === 'DAWN' ? '#fd5' : '#ff9' // Sun color
+                };
+            }
+
+            nextLevel() {
+                if (this.stage >= 20) {
+                    this.victory();
+                } else {
+                    this.state = 'TRANSITION';
+                    this.levelScreen.classList.remove('hidden');
+                    setTimeout(() => {
+                        this.startLevel(this.stage + 1);
+                    }, 3000);
+                }
+            }
+
+            victory() {
+                this.state = 'VICTORY';
+                this.victoryScreen.classList.remove('hidden');
+                document.getElementById('vic-score').innerText = `FINAL SCORE: ${this.score}`;
             }
 
             updateUI() {
@@ -315,15 +381,18 @@
                             p.y > t.y - t.height / 2 && p.y < t.y + t.height / 2) {
 
                             p.markedForDeletion = true;
-                            t.markedForDeletion = true; // One shot kill for now
 
-                            // Explosion effect
-                            // this.spawnExplosion(t.x, t.y);
+                            // Hit effect
+                            this.spawnExplosion(p.x, p.y, 'SMALL');
 
                             if (t instanceof Tank) {
+                                t.markedForDeletion = true;
+                                this.spawnExplosion(t.x, t.y, 'BIG');
                                 this.score += 100;
                                 this.updateUI();
                             } else if (t instanceof Helicopter) {
+                                t.markedForDeletion = true;
+                                this.spawnExplosion(t.x, t.y, 'BIG');
                                 this.lives--;
                                 this.updateUI();
                                 if (this.lives <= 0) {
@@ -340,6 +409,18 @@
                 // Cleanup dead entities
                 this.entities = this.entities.filter(e => !e.markedForDeletion);
                 this.particles = this.particles.filter(p => !p.markedForDeletion);
+            }
+
+            spawnExplosion(x, y, type) {
+                const count = type === 'BIG' ? 40 : 10;
+                const speed = type === 'BIG' ? 8 : 4;
+                for (let i = 0; i < count; i++) {
+                    const color = Math.random() > 0.5 ? '#f80' : '#ff0';
+                    this.particles.push(new Particle(this, x, y, color, Math.random() * speed, Math.random() * 1.0));
+                    if (type === 'BIG') {
+                        this.particles.push(new Particle(this, x, y, '#444', Math.random() * speed * 0.5, Math.random() * 2.0));
+                    }
+                }
             }
 
             respawnPlayer() {
@@ -361,21 +442,21 @@
                 this.ctx.fillStyle = '#000';
                 this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                if (this.state === 'PLAYING') {
+                if (this.state === 'PLAYING' || this.state === 'TRANSITION') {
                     // Camera Logic
                     // Target is player x, smoothed
-                    const targetCamX = -this.player.x + CANVAS_WIDTH / 3;
-                    // Clamp camera
-                    const minCamX = -(20000 - CANVAS_WIDTH);
-                    const maxCamX = 0;
-
-                    // Smooth camera
-                    if (!this.camX) this.camX = targetCamX;
-                    this.camX += (targetCamX - this.camX) * 0.1;
-
-                    // Clamp
-                    if (this.camX > maxCamX) this.camX = maxCamX;
-                    if (this.camX < minCamX) this.camX = minCamX;
+                    if (this.player && !this.player.markedForDeletion) {
+                        const targetCamX = -this.player.x + CANVAS_WIDTH / 3;
+                        // Clamp camera
+                        const minCamX = -(20000 - CANVAS_WIDTH);
+                        const maxCamX = 0;
+                        // Smooth camera
+                        if (!this.camX) this.camX = targetCamX;
+                        this.camX += (targetCamX - this.camX) * 0.1;
+                        // Clamp
+                        if (this.camX > maxCamX) this.camX = maxCamX;
+                        if (this.camX < minCamX) this.camX = minCamX;
+                    }
 
                     // --- PARALLAX BACKGROUNDS ---
                     this.drawParallax(this.ctx);
@@ -398,34 +479,86 @@
             }
 
             drawParallax(ctx) {
-                // Sky Gradient
+                // Sky Gradient based on Time of Day
                 const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-                skyGrad.addColorStop(0, '#050510');
-                skyGrad.addColorStop(0.5, '#202040');
-                skyGrad.addColorStop(1, '#404060');
+                if (this.timeOfDay === 'DAWN') {
+                    skyGrad.addColorStop(0, '#223');
+                    skyGrad.addColorStop(0.5, '#644');
+                    skyGrad.addColorStop(1, '#d85');
+                } else if (this.timeOfDay === 'DAY') {
+                    skyGrad.addColorStop(0, '#48c');
+                    skyGrad.addColorStop(1, '#adf');
+                } else if (this.timeOfDay === 'DUSK') {
+                    skyGrad.addColorStop(0, '#214');
+                    skyGrad.addColorStop(0.6, '#635');
+                    skyGrad.addColorStop(1, '#b62');
+                } else { // NIGHT
+                    skyGrad.addColorStop(0, '#001');
+                    skyGrad.addColorStop(1, '#112');
+                }
                 ctx.fillStyle = skyGrad;
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                // Stars
+                // Celestial Body
                 ctx.save();
-                ctx.fillStyle = '#FFF';
-                // Static stars, maybe move slightly?
-                for (let i = 0; i < 100; i++) {
-                    const x = (i * 137) % CANVAS_WIDTH;
-                    const y = (i * 63) % (CANVAS_HEIGHT / 2);
-                    ctx.globalAlpha = Math.random() * 0.5 + 0.3;
-                    ctx.fillRect(x, y, 2, 2);
+                if (this.celestial.type === 'SUN') {
+                    // Sun Glow
+                    const grad = ctx.createRadialGradient(this.celestial.x, this.celestial.y, 10, this.celestial.x, this.celestial.y, this.celestial.radius * 2);
+                    grad.addColorStop(0, this.celestial.color);
+                    grad.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = grad;
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.beginPath();
+                    ctx.arc(this.celestial.x, this.celestial.y, this.celestial.radius * 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = this.celestial.color;
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.beginPath();
+                    ctx.arc(this.celestial.x, this.celestial.y, this.celestial.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Moon
+                    ctx.fillStyle = '#fff';
+                    ctx.shadowColor = '#fff';
+                    ctx.shadowBlur = 20;
+                    ctx.beginPath();
+                    ctx.arc(this.celestial.x, this.celestial.y, this.celestial.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Phase mask
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = 'rgba(0,0,0,0.8)'; // Dark shadow
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.beginPath();
+                    const phaseOffset = (this.celestial.phase - 0.5) * this.celestial.radius * 2;
+                    ctx.arc(this.celestial.x + phaseOffset, this.celestial.y, this.celestial.radius, 0, Math.PI * 2);
+                    ctx.fill();
                 }
                 ctx.restore();
 
-                // Mountains (Far) - Parallax factor 0.1
-                this.drawMountainLayer(ctx, this.camX * 0.1, '#1a1a2e', 300, 150);
+                // Stars (only at night/dawn/dusk)
+                if (this.timeOfDay !== 'DAY') {
+                    ctx.save();
+                    ctx.fillStyle = '#FFF';
+                    for (let i = 0; i < 100; i++) {
+                        const x = (i * 137) % CANVAS_WIDTH;
+                        const y = (i * 63) % (CANVAS_HEIGHT / 2);
+                        ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+                        ctx.fillRect(x, y, 2, 2);
+                    }
+                    ctx.restore();
+                }
 
-                // Hills (Mid) - Parallax factor 0.3
-                this.drawMountainLayer(ctx, this.camX * 0.3, '#252545', 150, 100);
+                // Mountains - Fix flickering by ensuring positive modulo and wider draw range
+                // Colors based on time
+                let c1, c2, c3;
+                if (this.timeOfDay === 'DAY') { c1 = '#678'; c2 = '#456'; c3 = '#234'; }
+                else if (this.timeOfDay === 'NIGHT') { c1 = '#112'; c2 = '#001'; c3 = '#000'; }
+                else { c1 = '#324'; c2 = '#213'; c3 = '#102'; }
 
-                // Near Hills - Parallax factor 0.6
-                this.drawMountainLayer(ctx, this.camX * 0.6, '#303050', 80, 50);
+                this.drawMountainLayer(ctx, this.camX * 0.1, c1, 300, 150);
+                this.drawMountainLayer(ctx, this.camX * 0.3, c2, 150, 100);
+                this.drawMountainLayer(ctx, this.camX * 0.6, c3, 80, 50);
             }
 
             drawMountainLayer(ctx, scrollX, color, height, variance) {
@@ -433,30 +566,17 @@
                 ctx.beginPath();
                 ctx.moveTo(0, CANVAS_HEIGHT);
 
-                // Procedural mountains based on sine waves for simplicity in single file
-                // We need them to be consistent so we use a fixed seed-like approach
-                // or just repeat a pattern
-                const width = 20000; // World width
-                const segmentWidth = 100;
-
-                // Optimization: Only draw what's on screen? 
-                // For simplicity, we just draw a repeating pattern relative to scrollX
-
-                // We need to draw from 0 to CANVAS_WIDTH in screen space
-                // But the shape must be fixed to the world position
-                // So we iterate screen pixels? No, too slow.
-
-                // Better: Draw a loop of points offset by scrollX % pattern_width
-
                 const patternWidth = 2000;
-                const offset = scrollX % patternWidth;
+                // Ensure positive offset for smooth looping
+                const offset = ((scrollX % patternWidth) + patternWidth) % patternWidth;
 
                 ctx.lineTo(0, CANVAS_HEIGHT);
 
+                // Draw enough segments to cover screen + buffer
+                // Start from -patternWidth to cover left edge when scrolling
                 for (let x = -patternWidth; x < CANVAS_WIDTH + patternWidth; x += 50) {
-                    // Simple noise function
-                    const worldX = x - offset;
-                    const noise = Math.sin(worldX * 0.005) + Math.sin(worldX * 0.01) * 0.5;
+                    const wx = x + (patternWidth - offset); // Shifted x
+                    const noise = Math.sin(wx * 0.005) + Math.sin(wx * 0.01) * 0.5;
                     const y = CANVAS_HEIGHT - height + noise * variance;
                     ctx.lineTo(x, y);
                 }
@@ -528,6 +648,10 @@
                 this.targetAngle = 0;
                 this.facingRight = true;
                 this.rotorFrame = 0;
+                this.passengers = 0;
+                this.maxPassengers = 16;
+                this.lastShot = 0;
+                this.muzzleFlashTimer = 0;
             }
 
             update(dt) {
@@ -579,31 +703,46 @@
                 }
 
                 this.rotorFrame += 0.5;
+                if (this.muzzleFlashTimer > 0) this.muzzleFlashTimer -= dt;
 
                 // Shooting
                 if (input.isDown('Space') && this.game.lastTime - this.lastShot > 200) {
                     this.shoot();
                     this.lastShot = this.game.lastTime;
                 }
+
+                // Unload Passengers
+                if (this.x < 400 && this.y > CANVAS_HEIGHT - 150 && this.passengers > 0) {
+                    if (!this.unloadTimer) this.unloadTimer = 0;
+                    this.unloadTimer += dt;
+                    if (this.unloadTimer > 0.2) {
+                        this.passengers--;
+                        this.game.score += 50;
+                        this.game.hostagesRescued++;
+                        this.game.updateUI();
+                        this.unloadTimer = 0;
+
+                        // Check Level Complete
+                        if (this.game.hostagesRescued >= this.game.hostagesTotal) {
+                            this.game.nextLevel();
+                        }
+                    }
+                }
             }
 
             shoot() {
-                // Spawn projectile
-                // Offset based on facing
                 const offX = this.facingRight ? 40 : -40;
-                const angle = this.facingRight ? 0.1 : Math.PI - 0.1; // Slight down angle
-                // Add player velocity
+                const angle = this.facingRight ? 0.1 : Math.PI - 0.1;
                 const p = new Projectile(this.game, this.x + offX, this.y + 10, angle, true);
                 p.vx += this.vx;
                 this.game.entities.push(p);
+                this.muzzleFlashTimer = 0.05;
             }
 
             draw(ctx) {
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle);
-
-                // Draw Helicopter Body (Procedural Art)
 
                 // Shadow
                 ctx.shadowColor = 'rgba(0,0,0,0.5)';
@@ -654,10 +793,19 @@
                 ctx.fillStyle = '#444';
                 if (this.facingRight) {
                     ctx.fillRect(-70, 0, 40, 10);
-                    ctx.fillRect(-75, -15, 10, 25); // Tail rotor mount
+                    ctx.fillRect(-75, -15, 10, 25);
                 } else {
                     ctx.fillRect(30, 0, 40, 10);
                     ctx.fillRect(65, -15, 10, 25);
+                }
+
+                // Muzzle Flash
+                if (this.muzzleFlashTimer > 0) {
+                    ctx.fillStyle = '#ff9';
+                    ctx.beginPath();
+                    const mx = this.facingRight ? 45 : -45;
+                    ctx.arc(mx, 10, 10 + Math.random() * 10, 0, Math.PI * 2);
+                    ctx.fill();
                 }
 
                 // Rotors
@@ -665,13 +813,10 @@
                 ctx.shadowOffsetY = 0;
                 ctx.fillStyle = 'rgba(20, 20, 20, 0.8)';
 
-                // Main Rotor blur
                 const rotorWidth = 140;
                 const rotorHeight = 4;
                 ctx.save();
                 ctx.translate(0, -15);
-                // Rotate rotor visual to simulate spin
-                // Just squash/stretch or use transparency to simulate speed
                 ctx.fillStyle = `rgba(0,0,0, ${0.3 + Math.sin(this.rotorFrame) * 0.2})`;
                 ctx.fillRect(-rotorWidth / 2, -rotorHeight / 2, rotorWidth, rotorHeight);
                 ctx.fillStyle = `rgba(0,0,0, ${0.3 + Math.cos(this.rotorFrame) * 0.2})`;
@@ -701,18 +846,18 @@
                 super(game, x, CANVAS_HEIGHT - 130);
                 this.width = 20;
                 this.height = 30;
-                this.state = 'WAITING'; // WAITING, WAVING, FOLLOWING, BOARDING
+                this.state = 'WAITING';
                 this.timer = 0;
                 this.speed = 2;
                 this.facingRight = true;
+                this.boardedProcessed = false;
             }
 
             update(dt) {
                 this.timer += dt;
 
-                // Logic
                 const distToPlayer = Math.abs(this.game.player.x - this.x);
-                const playerLanded = this.game.player.y > CANVAS_HEIGHT - 150; // Close to ground
+                const playerLanded = this.game.player.y > CANVAS_HEIGHT - 150;
 
                 if (this.state === 'WAITING') {
                     if (distToPlayer < 400 && playerLanded) {
@@ -744,11 +889,16 @@
                         }
                     }
                 } else if (this.state === 'BOARDING') {
-                    if (this.timer > 1.0) {
-                        // Boarded
-                        this.markedForDeletion = true;
-                        this.game.hostagesRescued++; // Temporary counter, need real logic
-                        // TODO: Add to helicopter capacity
+                    if (this.timer > 1.0 && !this.boardedProcessed) {
+                        this.boardedProcessed = true;
+                        if (this.game.player.passengers < this.game.player.maxPassengers) {
+                            this.game.player.passengers++;
+                            this.markedForDeletion = true;
+                            this.game.updateUI();
+                        } else {
+                            this.state = 'WAITING';
+                            this.boardedProcessed = false;
+                        }
                     }
                 }
             }
@@ -757,25 +907,21 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
 
-                // Shadow
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 8, 3, 0, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Body
-                ctx.fillStyle = '#ccf'; // Shirt
+                ctx.fillStyle = '#ccf';
                 ctx.fillRect(-5, -25, 10, 15);
-                ctx.fillStyle = '#336'; // Pants
+                ctx.fillStyle = '#336';
                 ctx.fillRect(-5, -10, 10, 10);
 
-                // Head
                 ctx.fillStyle = '#fcc';
                 ctx.beginPath();
                 ctx.arc(0, -30, 5, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Arms (Waving)
                 if (this.state === 'WAVING') {
                     ctx.strokeStyle = '#fcc';
                     ctx.lineWidth = 2;
@@ -801,21 +947,21 @@
                 this.height = 40;
                 this.turretAngle = 0;
                 this.cooldown = 0;
+                this.muzzleFlashTimer = 0;
             }
 
             update(dt) {
                 if (this.cooldown > 0) this.cooldown -= dt;
+                if (this.muzzleFlashTimer > 0) this.muzzleFlashTimer -= dt;
 
                 const dx = this.game.player.x - this.x;
                 const dy = (this.game.player.y) - (this.y - 20);
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                // Aim
                 if (dist < 1000) {
                     const targetAngle = Math.atan2(dy, dx);
                     this.turretAngle = targetAngle;
 
-                    // Shoot
                     if (this.cooldown <= 0 && Math.abs(dx) < 800) {
                         this.shoot();
                         this.cooldown = 2 + Math.random() * 2;
@@ -828,20 +974,18 @@
                 const muzzleY = (this.y - 20) + Math.sin(this.turretAngle) * 40;
 
                 this.game.entities.push(new Projectile(this.game, muzzleX, muzzleY, this.turretAngle, false));
+                this.muzzleFlashTimer = 0.1;
             }
 
             draw(ctx) {
                 ctx.save();
                 ctx.translate(this.x, this.y);
 
-                // Body
                 ctx.fillStyle = '#454';
                 ctx.fillRect(-40, -20, 80, 20);
 
-                // Treads
                 ctx.fillStyle = '#222';
                 ctx.fillRect(-38, 0, 76, 10);
-                // Wheels
                 ctx.fillStyle = '#555';
                 for (let i = 0; i < 4; i++) {
                     ctx.beginPath();
@@ -849,16 +993,24 @@
                     ctx.fill();
                 }
 
-                // Turret
                 ctx.save();
                 ctx.translate(0, -20);
                 ctx.rotate(this.turretAngle);
                 ctx.fillStyle = '#343';
-                ctx.fillRect(0, -5, 40, 10); // Barrel
+                ctx.fillRect(0, -5, 40, 10);
                 ctx.fillStyle = '#454';
                 ctx.beginPath();
-                ctx.arc(0, 0, 15, 0, Math.PI * 2); // Turret base
+                ctx.arc(0, 0, 15, 0, Math.PI * 2);
                 ctx.fill();
+
+                // Muzzle Flash
+                if (this.muzzleFlashTimer > 0) {
+                    ctx.fillStyle = '#fa0';
+                    ctx.beginPath();
+                    ctx.arc(45, 0, 15 + Math.random() * 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
                 ctx.restore();
 
                 ctx.restore();
@@ -883,10 +1035,8 @@
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Ground collision
                 if (this.y > CANVAS_HEIGHT - 100) {
                     this.markedForDeletion = true;
-                    // TODO: Explosion particle
                 }
             }
 
@@ -894,6 +1044,8 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.fillStyle = this.isPlayer ? '#ff0' : '#f80';
+                ctx.shadowColor = this.isPlayer ? '#ff0' : '#f00';
+                ctx.shadowBlur = 5;
                 ctx.beginPath();
                 ctx.arc(0, 0, 3, 0, Math.PI * 2);
                 ctx.fill();
@@ -919,7 +1071,7 @@
 
                 this.x += this.vx;
                 this.y += this.vy;
-                this.vy += 0.05; // Gravity
+                this.vy += 0.05;
             }
 
             draw(ctx) {
@@ -935,59 +1087,6 @@
         // --- INIT ---
         window.onload = () => {
             const game = new Game();
-
-            // Add methods to Game prototype for particles and rescue
-            Game.prototype.spawnExplosion = function (x, y) {
-                for (let i = 0; i < 20; i++) {
-                    this.particles.push(new Particle(this, x, y, '#f80', Math.random() * 5, Math.random() * 1.0));
-                    this.particles.push(new Particle(this, x, y, '#444', Math.random() * 3, Math.random() * 1.5));
-                }
-            };
-
-            // Enhance Helicopter for passengers
-            const originalUpdate = Helicopter.prototype.update;
-            Helicopter.prototype.passengers = 0;
-            Helicopter.prototype.maxPassengers = 16;
-
-            Helicopter.prototype.update = function (dt) {
-                originalUpdate.call(this, dt);
-
-                // Check for base landing to unload
-                if (this.x < 400 && this.y > CANVAS_HEIGHT - 150 && this.passengers > 0) {
-                    // Unload one by one
-                    if (!this.unloadTimer) this.unloadTimer = 0;
-                    this.unloadTimer += dt;
-                    if (this.unloadTimer > 0.2) {
-                        this.passengers--;
-                        this.game.score += 50;
-                        this.game.hostagesRescued++; // Actually rescued now
-                        this.game.updateUI();
-                        this.unloadTimer = 0;
-
-                        // Spawn a saved hostage running to building
-                        // Visual only for now
-                    }
-                }
-            };
-
-            // Hook into Hostage boarding
-            const originalHostageUpdate = Hostage.prototype.update;
-            Hostage.prototype.update = function (dt) {
-                originalHostageUpdate.call(this, dt);
-
-                if (this.state === 'BOARDING' && this.timer > 1.0 && !this.boardedProcessed) {
-                    this.boardedProcessed = true;
-                    if (this.game.player.passengers < this.game.player.maxPassengers) {
-                        this.game.player.passengers++;
-                        this.game.updateUI(); // Update UI to show onboard?
-                    } else {
-                        // Full, stay waiting
-                        this.state = 'WAITING';
-                        this.boardedProcessed = false;
-                        this.markedForDeletion = false; // Don't delete
-                    }
-                }
-            };
         };
 
     </script>
