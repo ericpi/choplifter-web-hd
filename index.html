@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choplifter HD</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
+        }
+
+        #game-container {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+            background: #000;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+            text-shadow: 0 0 10px #0ff;
+        }
+
+        .hud-bottom {
+            display: flex;
+            justify-content: center;
+            font-size: 18px;
+            opacity: 0.8;
+        }
+
+        #start-screen,
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            font-size: 80px;
+            margin: 0 0 20px 0;
+            background: linear-gradient(to bottom, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: linear-gradient(45deg, #c00, #800);
+            border: none;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(200, 0, 0, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 50%, rgba(0, 0, 0, 0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1920" height="1080"></canvas>
+        <div class="scanlines"></div>
+
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div id="score-display">SCORE: 0</div>
+                <div id="stage-display">STAGE: 1</div>
+                <div id="lives-display">LIVES: 3</div>
+            </div>
+            <div class="hud-bottom">
+                <div id="hostages-display">HOSTAGES: 0 / 0</div>
+            </div>
+        </div>
+
+        <div id="start-screen">
+            <h1>CHOPLIFTER HD</h1>
+            <p style="font-size: 20px; color: #aaa; margin-bottom: 40px;">WASD to Fly | SPACE to Shoot | F for
+                Fullscreen</p>
+            <button class="btn" id="start-btn">DEPLOY</button>
+        </div>
+
+        <div id="game-over-screen" class="hidden">
+            <h1 id="go-title">MISSION FAILED</h1>
+            <p id="go-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
+            <button class="btn" id="restart-btn">RETRY</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const CANVAS_WIDTH = 1920;
+        const CANVAS_HEIGHT = 1080;
+        const GRAVITY = 0.15;
+        const FRICTION = 0.98;
+        const THRUST_POWER = 0.3;
+        const ROTATION_SPEED = 0.05;
+        const MAX_SPEED = 12;
+
+        // --- INPUT MANAGER ---
+        class InputHandler {
+            constructor() {
+                this.keys = {};
+                window.addEventListener('keydown', e => this.keys[e.code] = true);
+                window.addEventListener('keyup', e => this.keys[e.code] = false);
+
+                // Fullscreen toggle
+                window.addEventListener('keydown', e => {
+                    if (e.code === 'KeyF') {
+                        this.toggleFullscreen();
+                    }
+                });
+            }
+
+            isDown(code) {
+                return !!this.keys[code];
+            }
+
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // --- GAME ENGINE ---
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.input = new InputHandler();
+
+                this.lastTime = 0;
+                this.accumulatedTime = 0;
+                this.step = 1 / 60;
+
+                this.state = 'MENU'; // MENU, PLAYING, GAMEOVER
+                this.stage = 1;
+                this.score = 0;
+                this.lives = 3;
+
+                this.entities = [];
+                this.particles = [];
+
+                // Bind UI
+                this.startScreen = document.getElementById('start-screen');
+                this.gameOverScreen = document.getElementById('game-over-screen');
+                this.startBtn = document.getElementById('start-btn');
+                this.restartBtn = document.getElementById('restart-btn');
+
+                this.startBtn.addEventListener('click', () => this.startLevel(1));
+                this.restartBtn.addEventListener('click', () => this.startLevel(1));
+
+                // Resize handler to keep aspect ratio
+                window.addEventListener('resize', () => this.handleResize());
+                this.handleResize();
+
+                this.loop = this.loop.bind(this);
+                requestAnimationFrame(this.loop);
+            }
+
+            handleResize() {
+                const container = document.getElementById('game-container');
+                const aspect = CANVAS_WIDTH / CANVAS_HEIGHT;
+                const windowAspect = window.innerWidth / window.innerHeight;
+
+                let scale;
+                if (windowAspect < aspect) {
+                    scale = window.innerWidth / CANVAS_WIDTH;
+                } else {
+                    scale = window.innerHeight / CANVAS_HEIGHT;
+                }
+
+                container.style.transform = `scale(${scale})`;
+            }
+
+            startLevel(level) {
+                this.stage = level;
+                this.state = 'PLAYING';
+                this.startScreen.classList.add('hidden');
+                this.gameOverScreen.classList.add('hidden');
+
+                // Reset entities
+                this.entities = [];
+                this.particles = [];
+                this.hostagesRescued = 0;
+                this.hostagesTotal = 0;
+
+                // Add Player
+                this.player = new Helicopter(this);
+                this.player.lastShot = 0; // Initialize lastShot
+                this.entities.push(this.player);
+
+                // Generate Level
+                // Hostages
+                for (let i = 0; i < 5 + level; i++) {
+                    // Random positions between 1000 and 19000
+                    const hx = 1000 + Math.random() * 18000;
+                    this.entities.push(new Hostage(this, hx));
+                    this.hostagesTotal++;
+                }
+
+                // Enemies
+                for (let i = 0; i < 3 + level; i++) {
+                    const tx = 1500 + Math.random() * 17000;
+                    this.entities.push(new Tank(this, tx));
+                }
+
+                this.updateUI();
+            }
+
+            updateUI() {
+                document.getElementById('score-display').innerText = `SCORE: ${this.score}`;
+                document.getElementById('stage-display').innerText = `STAGE: ${this.stage}`;
+                document.getElementById('lives-display').innerText = `LIVES: ${this.lives}`;
+                document.getElementById('hostages-display').innerText = `HOSTAGES: ${this.hostagesRescued} / ${this.hostagesTotal}`;
+            }
+
+            update(dt) {
+                if (this.state !== 'PLAYING') return;
+
+                // Update Entities
+                this.entities.forEach(e => e.update(dt));
+                this.particles.forEach(p => p.update(dt));
+
+                // Collision Detection
+                // Projectiles vs Enemies/Player
+                const projectiles = this.entities.filter(e => e instanceof Projectile);
+                const targets = this.entities.filter(e => e instanceof Tank || e instanceof Helicopter);
+
+                projectiles.forEach(p => {
+                    targets.forEach(t => {
+                        if (p.markedForDeletion || t.markedForDeletion) return;
+                        if (p.isPlayer && t instanceof Helicopter) return; // No friendly fire
+                        if (!p.isPlayer && t instanceof Tank) return; // Enemies don't shoot each other
+
+                        // Simple AABB
+                        if (p.x > t.x - t.width / 2 && p.x < t.x + t.width / 2 &&
+                            p.y > t.y - t.height / 2 && p.y < t.y + t.height / 2) {
+
+                            p.markedForDeletion = true;
+                            t.markedForDeletion = true; // One shot kill for now
+
+                            // Explosion effect
+                            // this.spawnExplosion(t.x, t.y);
+
+                            if (t instanceof Tank) {
+                                this.score += 100;
+                                this.updateUI();
+                            } else if (t instanceof Helicopter) {
+                                this.lives--;
+                                this.updateUI();
+                                if (this.lives <= 0) {
+                                    this.gameOver();
+                                } else {
+                                    // Respawn
+                                    setTimeout(() => this.respawnPlayer(), 2000);
+                                }
+                            }
+                        }
+                    });
+                });
+
+                // Cleanup dead entities
+                this.entities = this.entities.filter(e => !e.markedForDeletion);
+                this.particles = this.particles.filter(p => !p.markedForDeletion);
+            }
+
+            respawnPlayer() {
+                if (this.lives > 0) {
+                    this.player = new Helicopter(this);
+                    this.player.lastShot = 0;
+                    this.entities.push(this.player);
+                }
+            }
+
+            gameOver() {
+                this.state = 'GAMEOVER';
+                this.gameOverScreen.classList.remove('hidden');
+                document.getElementById('go-score').innerText = `FINAL SCORE: ${this.score}`;
+            }
+
+            draw() {
+                // Clear Screen
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                if (this.state === 'PLAYING') {
+                    // Camera Logic
+                    // Target is player x, smoothed
+                    const targetCamX = -this.player.x + CANVAS_WIDTH / 3;
+                    // Clamp camera
+                    const minCamX = -(20000 - CANVAS_WIDTH);
+                    const maxCamX = 0;
+
+                    // Smooth camera
+                    if (!this.camX) this.camX = targetCamX;
+                    this.camX += (targetCamX - this.camX) * 0.1;
+
+                    // Clamp
+                    if (this.camX > maxCamX) this.camX = maxCamX;
+                    if (this.camX < minCamX) this.camX = minCamX;
+
+                    // --- PARALLAX BACKGROUNDS ---
+                    this.drawParallax(this.ctx);
+
+                    // --- WORLD LAYER ---
+                    this.ctx.save();
+                    this.ctx.translate(this.camX, 0);
+
+                    // Draw Ground
+                    this.drawGround(this.ctx);
+
+                    // Draw Entities
+                    // Sort by z-index if needed, or just order of arrays
+                    // Hostages behind?
+                    this.entities.forEach(e => e.draw(this.ctx));
+                    this.particles.forEach(p => p.draw(this.ctx));
+
+                    this.ctx.restore();
+                }
+            }
+
+            drawParallax(ctx) {
+                // Sky Gradient
+                const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                skyGrad.addColorStop(0, '#050510');
+                skyGrad.addColorStop(0.5, '#202040');
+                skyGrad.addColorStop(1, '#404060');
+                ctx.fillStyle = skyGrad;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Stars
+                ctx.save();
+                ctx.fillStyle = '#FFF';
+                // Static stars, maybe move slightly?
+                for (let i = 0; i < 100; i++) {
+                    const x = (i * 137) % CANVAS_WIDTH;
+                    const y = (i * 63) % (CANVAS_HEIGHT / 2);
+                    ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+                    ctx.fillRect(x, y, 2, 2);
+                }
+                ctx.restore();
+
+                // Mountains (Far) - Parallax factor 0.1
+                this.drawMountainLayer(ctx, this.camX * 0.1, '#1a1a2e', 300, 150);
+
+                // Hills (Mid) - Parallax factor 0.3
+                this.drawMountainLayer(ctx, this.camX * 0.3, '#252545', 150, 100);
+
+                // Near Hills - Parallax factor 0.6
+                this.drawMountainLayer(ctx, this.camX * 0.6, '#303050', 80, 50);
+            }
+
+            drawMountainLayer(ctx, scrollX, color, height, variance) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(0, CANVAS_HEIGHT);
+
+                // Procedural mountains based on sine waves for simplicity in single file
+                // We need them to be consistent so we use a fixed seed-like approach
+                // or just repeat a pattern
+                const width = 20000; // World width
+                const segmentWidth = 100;
+
+                // Optimization: Only draw what's on screen? 
+                // For simplicity, we just draw a repeating pattern relative to scrollX
+
+                // We need to draw from 0 to CANVAS_WIDTH in screen space
+                // But the shape must be fixed to the world position
+                // So we iterate screen pixels? No, too slow.
+
+                // Better: Draw a loop of points offset by scrollX % pattern_width
+
+                const patternWidth = 2000;
+                const offset = scrollX % patternWidth;
+
+                ctx.lineTo(0, CANVAS_HEIGHT);
+
+                for (let x = -patternWidth; x < CANVAS_WIDTH + patternWidth; x += 50) {
+                    // Simple noise function
+                    const worldX = x - offset;
+                    const noise = Math.sin(worldX * 0.005) + Math.sin(worldX * 0.01) * 0.5;
+                    const y = CANVAS_HEIGHT - height + noise * variance;
+                    ctx.lineTo(x, y);
+                }
+
+                ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.fill();
+            }
+
+            drawGround(ctx) {
+                // Ground Pattern
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, CANVAS_HEIGHT - 100, 20000, 100);
+
+                // Ground details
+                ctx.fillStyle = '#222';
+                for (let i = 0; i < 200; i++) {
+                    ctx.fillRect(i * 100, CANVAS_HEIGHT - 100, 50, 20);
+                }
+
+                // Base (Start)
+                ctx.fillStyle = '#334';
+                ctx.fillRect(100, CANVAS_HEIGHT - 120, 300, 20);
+                // Base Building
+                ctx.fillStyle = '#223';
+                ctx.fillRect(150, CANVAS_HEIGHT - 180, 100, 60);
+                // Flag
+                ctx.fillStyle = '#c00';
+                ctx.fillRect(200, CANVAS_HEIGHT - 220, 40, 30);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(198, CANVAS_HEIGHT - 220, 2, 120);
+            }
+
+            loop(timestamp) {
+                let dt = (timestamp - this.lastTime) / 1000;
+                this.lastTime = timestamp;
+
+                // Cap dt to avoid spirals
+                if (dt > 0.1) dt = 0.1;
+
+                this.update(dt);
+                this.draw();
+
+                requestAnimationFrame(this.loop);
+            }
+        }
+
+        // --- ENTITIES ---
+        class Entity {
+            constructor(game, x, y) {
+                this.game = game;
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.width = 0;
+                this.height = 0;
+                this.markedForDeletion = false;
+            }
+            update(dt) { }
+            draw(ctx) { }
+        }
+
+        class Helicopter extends Entity {
+            constructor(game) {
+                super(game, 200, CANVAS_HEIGHT - 300);
+                this.width = 120;
+                this.height = 60;
+                this.angle = 0;
+                this.targetAngle = 0;
+                this.facingRight = true;
+                this.rotorFrame = 0;
+            }
+
+            update(dt) {
+                const input = this.game.input;
+
+                // Controls
+                if (input.isDown('KeyW')) {
+                    this.vy -= THRUST_POWER;
+                }
+                // Gravity
+                this.vy += GRAVITY;
+
+                // Horizontal movement based on tilt
+                if (input.isDown('KeyA')) {
+                    this.targetAngle = -0.3;
+                    this.facingRight = false;
+                    this.vx -= 0.2;
+                } else if (input.isDown('KeyD')) {
+                    this.targetAngle = 0.3;
+                    this.facingRight = true;
+                    this.vx += 0.2;
+                } else {
+                    this.targetAngle = 0;
+                }
+
+                // Smooth rotation
+                this.angle += (this.targetAngle - this.angle) * 0.1;
+
+                // Friction
+                this.vx *= FRICTION;
+                this.vy *= 0.99; // Air resistance
+
+                // Apply velocity
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Ground Collision
+                if (this.y > CANVAS_HEIGHT - 100 - this.height / 2) {
+                    this.y = CANVAS_HEIGHT - 100 - this.height / 2;
+                    this.vy = 0;
+                    this.vx *= 0.8; // Ground friction
+                    this.angle = 0;
+                }
+
+                // Ceiling Collision
+                if (this.y < 50) {
+                    this.y = 50;
+                    this.vy = 0;
+                }
+
+                this.rotorFrame += 0.5;
+
+                // Shooting
+                if (input.isDown('Space') && this.game.lastTime - this.lastShot > 200) {
+                    this.shoot();
+                    this.lastShot = this.game.lastTime;
+                }
+            }
+
+            shoot() {
+                // Spawn projectile
+                // Offset based on facing
+                const offX = this.facingRight ? 40 : -40;
+                const angle = this.facingRight ? 0.1 : Math.PI - 0.1; // Slight down angle
+                // Add player velocity
+                const p = new Projectile(this.game, this.x + offX, this.y + 10, angle, true);
+                p.vx += this.vx;
+                this.game.entities.push(p);
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Draw Helicopter Body (Procedural Art)
+
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 10;
+
+                // Main Body
+                const bodyGrad = ctx.createLinearGradient(-40, -20, 40, 20);
+                bodyGrad.addColorStop(0, '#444');
+                bodyGrad.addColorStop(0.5, '#666');
+                bodyGrad.addColorStop(1, '#333');
+
+                ctx.fillStyle = bodyGrad;
+                // Cockpit shape
+                ctx.beginPath();
+                if (this.facingRight) {
+                    ctx.moveTo(-40, -10);
+                    ctx.lineTo(20, -10);
+                    ctx.bezierCurveTo(50, -10, 50, 20, 20, 20);
+                    ctx.lineTo(-30, 20);
+                    ctx.lineTo(-40, 10);
+                } else {
+                    ctx.moveTo(40, -10);
+                    ctx.lineTo(-20, -10);
+                    ctx.bezierCurveTo(-50, -10, -50, 20, -20, 20);
+                    ctx.lineTo(30, 20);
+                    ctx.lineTo(40, 10);
+                }
+                ctx.fill();
+
+                // Cockpit Glass
+                ctx.fillStyle = 'rgba(100, 200, 255, 0.6)';
+                ctx.beginPath();
+                if (this.facingRight) {
+                    ctx.moveTo(0, -5);
+                    ctx.lineTo(20, -5);
+                    ctx.bezierCurveTo(35, -5, 35, 15, 20, 15);
+                    ctx.lineTo(0, 15);
+                } else {
+                    ctx.moveTo(0, -5);
+                    ctx.lineTo(-20, -5);
+                    ctx.bezierCurveTo(-35, -5, -35, 15, -20, 15);
+                    ctx.lineTo(0, 15);
+                }
+                ctx.fill();
+
+                // Tail
+                ctx.fillStyle = '#444';
+                if (this.facingRight) {
+                    ctx.fillRect(-70, 0, 40, 10);
+                    ctx.fillRect(-75, -15, 10, 25); // Tail rotor mount
+                } else {
+                    ctx.fillRect(30, 0, 40, 10);
+                    ctx.fillRect(65, -15, 10, 25);
+                }
+
+                // Rotors
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+                ctx.fillStyle = 'rgba(20, 20, 20, 0.8)';
+
+                // Main Rotor blur
+                const rotorWidth = 140;
+                const rotorHeight = 4;
+                ctx.save();
+                ctx.translate(0, -15);
+                // Rotate rotor visual to simulate spin
+                // Just squash/stretch or use transparency to simulate speed
+                ctx.fillStyle = `rgba(0,0,0, ${0.3 + Math.sin(this.rotorFrame) * 0.2})`;
+                ctx.fillRect(-rotorWidth / 2, -rotorHeight / 2, rotorWidth, rotorHeight);
+                ctx.fillStyle = `rgba(0,0,0, ${0.3 + Math.cos(this.rotorFrame) * 0.2})`;
+                ctx.fillRect(-rotorWidth / 2 * 0.8, -rotorHeight / 2, rotorWidth * 0.8, rotorHeight);
+                ctx.restore();
+
+                // Skids
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(-20, 20);
+                ctx.lineTo(-20, 30);
+                ctx.lineTo(20, 30);
+                ctx.lineTo(20, 20);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-30, 30);
+                ctx.lineTo(30, 30);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        class Hostage extends Entity {
+            constructor(game, x) {
+                super(game, x, CANVAS_HEIGHT - 130);
+                this.width = 20;
+                this.height = 30;
+                this.state = 'WAITING'; // WAITING, WAVING, FOLLOWING, BOARDING
+                this.timer = 0;
+                this.speed = 2;
+                this.facingRight = true;
+            }
+
+            update(dt) {
+                this.timer += dt;
+
+                // Logic
+                const distToPlayer = Math.abs(this.game.player.x - this.x);
+                const playerLanded = this.game.player.y > CANVAS_HEIGHT - 150; // Close to ground
+
+                if (this.state === 'WAITING') {
+                    if (distToPlayer < 400 && playerLanded) {
+                        this.state = 'WAVING';
+                    }
+                } else if (this.state === 'WAVING') {
+                    if (!playerLanded) this.state = 'WAITING';
+                    if (distToPlayer < 50 && playerLanded) {
+                        this.state = 'BOARDING';
+                        this.timer = 0;
+                    } else if (distToPlayer > 50 && playerLanded) {
+                        this.state = 'FOLLOWING';
+                    }
+                } else if (this.state === 'FOLLOWING') {
+                    if (!playerLanded) {
+                        this.state = 'WAITING';
+                    } else {
+                        if (this.game.player.x > this.x) {
+                            this.x += this.speed;
+                            this.facingRight = true;
+                        } else {
+                            this.x -= this.speed;
+                            this.facingRight = false;
+                        }
+
+                        if (distToPlayer < 30) {
+                            this.state = 'BOARDING';
+                            this.timer = 0;
+                        }
+                    }
+                } else if (this.state === 'BOARDING') {
+                    if (this.timer > 1.0) {
+                        // Boarded
+                        this.markedForDeletion = true;
+                        this.game.hostagesRescued++; // Temporary counter, need real logic
+                        // TODO: Add to helicopter capacity
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 8, 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Body
+                ctx.fillStyle = '#ccf'; // Shirt
+                ctx.fillRect(-5, -25, 10, 15);
+                ctx.fillStyle = '#336'; // Pants
+                ctx.fillRect(-5, -10, 10, 10);
+
+                // Head
+                ctx.fillStyle = '#fcc';
+                ctx.beginPath();
+                ctx.arc(0, -30, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Arms (Waving)
+                if (this.state === 'WAVING') {
+                    ctx.strokeStyle = '#fcc';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(-5, -25);
+                    const wave = Math.sin(this.timer * 10) * 10;
+                    ctx.lineTo(-10, -35 + wave);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(5, -25);
+                    ctx.lineTo(10, -35 - wave);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Tank extends Entity {
+            constructor(game, x) {
+                super(game, x, CANVAS_HEIGHT - 140);
+                this.width = 80;
+                this.height = 40;
+                this.turretAngle = 0;
+                this.cooldown = 0;
+            }
+
+            update(dt) {
+                if (this.cooldown > 0) this.cooldown -= dt;
+
+                const dx = this.game.player.x - this.x;
+                const dy = (this.game.player.y) - (this.y - 20);
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Aim
+                if (dist < 1000) {
+                    const targetAngle = Math.atan2(dy, dx);
+                    this.turretAngle = targetAngle;
+
+                    // Shoot
+                    if (this.cooldown <= 0 && Math.abs(dx) < 800) {
+                        this.shoot();
+                        this.cooldown = 2 + Math.random() * 2;
+                    }
+                }
+            }
+
+            shoot() {
+                const muzzleX = this.x + Math.cos(this.turretAngle) * 40;
+                const muzzleY = (this.y - 20) + Math.sin(this.turretAngle) * 40;
+
+                this.game.entities.push(new Projectile(this.game, muzzleX, muzzleY, this.turretAngle, false));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Body
+                ctx.fillStyle = '#454';
+                ctx.fillRect(-40, -20, 80, 20);
+
+                // Treads
+                ctx.fillStyle = '#222';
+                ctx.fillRect(-38, 0, 76, 10);
+                // Wheels
+                ctx.fillStyle = '#555';
+                for (let i = 0; i < 4; i++) {
+                    ctx.beginPath();
+                    ctx.arc(-25 + i * 18, 5, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Turret
+                ctx.save();
+                ctx.translate(0, -20);
+                ctx.rotate(this.turretAngle);
+                ctx.fillStyle = '#343';
+                ctx.fillRect(0, -5, 40, 10); // Barrel
+                ctx.fillStyle = '#454';
+                ctx.beginPath();
+                ctx.arc(0, 0, 15, 0, Math.PI * 2); // Turret base
+                ctx.fill();
+                ctx.restore();
+
+                ctx.restore();
+            }
+        }
+
+        class Projectile extends Entity {
+            constructor(game, x, y, angle, isPlayer) {
+                super(game, x, y);
+                this.vx = Math.cos(angle) * 15;
+                this.vy = Math.sin(angle) * 15;
+                this.isPlayer = isPlayer;
+                this.life = 2.0;
+                this.width = 5;
+                this.height = 5;
+            }
+
+            update(dt) {
+                this.life -= dt;
+                if (this.life <= 0) this.markedForDeletion = true;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Ground collision
+                if (this.y > CANVAS_HEIGHT - 100) {
+                    this.markedForDeletion = true;
+                    // TODO: Explosion particle
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.fillStyle = this.isPlayer ? '#ff0' : '#f80';
+                ctx.beginPath();
+                ctx.arc(0, 0, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Particle extends Entity {
+            constructor(game, x, y, color, speed, life) {
+                super(game, x, y);
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+                this.size = Math.random() * 5 + 2;
+            }
+
+            update(dt) {
+                this.life -= dt;
+                if (this.life <= 0) this.markedForDeletion = true;
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.05; // Gravity
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color;
+                ctx.translate(this.x, this.y);
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            const game = new Game();
+
+            // Add methods to Game prototype for particles and rescue
+            Game.prototype.spawnExplosion = function (x, y) {
+                for (let i = 0; i < 20; i++) {
+                    this.particles.push(new Particle(this, x, y, '#f80', Math.random() * 5, Math.random() * 1.0));
+                    this.particles.push(new Particle(this, x, y, '#444', Math.random() * 3, Math.random() * 1.5));
+                }
+            };
+
+            // Enhance Helicopter for passengers
+            const originalUpdate = Helicopter.prototype.update;
+            Helicopter.prototype.passengers = 0;
+            Helicopter.prototype.maxPassengers = 16;
+
+            Helicopter.prototype.update = function (dt) {
+                originalUpdate.call(this, dt);
+
+                // Check for base landing to unload
+                if (this.x < 400 && this.y > CANVAS_HEIGHT - 150 && this.passengers > 0) {
+                    // Unload one by one
+                    if (!this.unloadTimer) this.unloadTimer = 0;
+                    this.unloadTimer += dt;
+                    if (this.unloadTimer > 0.2) {
+                        this.passengers--;
+                        this.game.score += 50;
+                        this.game.hostagesRescued++; // Actually rescued now
+                        this.game.updateUI();
+                        this.unloadTimer = 0;
+
+                        // Spawn a saved hostage running to building
+                        // Visual only for now
+                    }
+                }
+            };
+
+            // Hook into Hostage boarding
+            const originalHostageUpdate = Hostage.prototype.update;
+            Hostage.prototype.update = function (dt) {
+                originalHostageUpdate.call(this, dt);
+
+                if (this.state === 'BOARDING' && this.timer > 1.0 && !this.boardedProcessed) {
+                    this.boardedProcessed = true;
+                    if (this.game.player.passengers < this.game.player.maxPassengers) {
+                        this.game.player.passengers++;
+                        this.game.updateUI(); // Update UI to show onboard?
+                    } else {
+                        // Full, stay waiting
+                        this.state = 'WAITING';
+                        this.boardedProcessed = false;
+                        this.markedForDeletion = false; // Don't delete
+                    }
+                }
+            };
+        };
+
+    </script>
+</body>
+
+</html>
