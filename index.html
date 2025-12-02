@@ -187,11 +187,40 @@
         // --- CONSTANTS & CONFIG ---
         const CANVAS_WIDTH = 1920;
         const CANVAS_HEIGHT = 1080;
-        const GRAVITY = 0.075; // Reduced by 50% from 0.15
+        const GRAVITY = 0.0525; // Reduced by another 30%
         const FRICTION = 0.98;
         const THRUST_POWER = 0.3;
         const ROTATION_SPEED = 0.05;
         const MAX_SPEED = 12;
+
+        class FloatingText {
+            constructor(text, x, y, color) {
+                this.text = text;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.life = 1.5; // seconds
+                this.vy = -1;
+                this.markedForDeletion = false;
+            }
+
+            update(dt) {
+                this.life -= dt;
+                if (this.life <= 0) this.markedForDeletion = true;
+                this.y += this.vy;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.font = '20px Orbitron';
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 4;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
 
         // --- INPUT MANAGER ---
         class InputHandler {
@@ -241,6 +270,7 @@
 
                 this.entities = [];
                 this.particles = [];
+                this.floatingTexts = [];
 
                 // Bind UI
                 this.startScreen = document.getElementById('start-screen');
@@ -290,8 +320,10 @@
                 // Reset entities
                 this.entities = [];
                 this.particles = [];
+                this.floatingTexts = [];
                 this.hostagesRescued = 0;
-                this.hostagesTotal = 6; // Fixed 6 per level
+                this.hostagesTotal = 6; // Fixed 6 per level initially
+                this.hostageSpawnTimer = 0;
 
                 // Add Player
                 this.player = new Helicopter(this);
@@ -361,9 +393,21 @@
             update(dt) {
                 if (this.state !== 'PLAYING') return;
 
+                // Hostage Spawn Logic
+                this.hostageSpawnTimer += dt;
+                if (this.hostageSpawnTimer >= 60) {
+                    this.hostageSpawnTimer = 0;
+                    const hx = 2000 + Math.random() * 16000;
+                    this.entities.push(new Hostage(this, hx));
+                    this.hostagesTotal++;
+                    this.updateUI();
+                    this.floatingTexts.push(new FloatingText("REINFORCEMENTS DETECTED!", CANVAS_WIDTH / 2, 200, '#ff0'));
+                }
+
                 // Update Entities
                 this.entities.forEach(e => e.update(dt));
                 this.particles.forEach(p => p.update(dt));
+                this.floatingTexts.forEach(t => t.update(dt));
 
                 // Collision Detection
                 // Projectiles vs Enemies/Player
@@ -409,6 +453,7 @@
                 // Cleanup dead entities
                 this.entities = this.entities.filter(e => !e.markedForDeletion);
                 this.particles = this.particles.filter(p => !p.markedForDeletion);
+                this.floatingTexts = this.floatingTexts.filter(t => !t.markedForDeletion);
             }
 
             spawnExplosion(x, y, type) {
@@ -473,6 +518,7 @@
                     // Hostages behind?
                     this.entities.forEach(e => e.draw(this.ctx));
                     this.particles.forEach(p => p.draw(this.ctx));
+                    this.floatingTexts.forEach(t => t.draw(this.ctx));
 
                     this.ctx.restore();
                 }
@@ -690,10 +736,25 @@
 
                 // Ground Collision
                 if (this.y > CANVAS_HEIGHT - 100 - this.height / 2) {
-                    this.y = CANVAS_HEIGHT - 100 - this.height / 2;
-                    this.vy = 0;
-                    this.vx *= 0.8; // Ground friction
-                    this.angle = 0;
+                    // Check crash velocity
+                    if (this.vy > 4.0) {
+                        // Crash
+                        this.markedForDeletion = true;
+                        this.game.spawnExplosion(this.x, this.y, 'BIG');
+                        this.game.lives--;
+                        this.game.updateUI();
+                        if (this.game.lives <= 0) {
+                            this.game.gameOver();
+                        } else {
+                            setTimeout(() => this.game.respawnPlayer(), 2000);
+                        }
+                    } else {
+                        // Safe landing
+                        this.y = CANVAS_HEIGHT - 100 - this.height / 2;
+                        this.vy = 0;
+                        this.vx *= 0.8; // Ground friction
+                        this.angle = 0;
+                    }
                 }
 
                 // Ceiling Collision
@@ -895,9 +956,12 @@
                             this.game.player.passengers++;
                             this.markedForDeletion = true;
                             this.game.updateUI();
+                            // Boarding Animation
+                            this.game.floatingTexts.push(new FloatingText("SAVED!", this.x, this.y - 40, '#0f0'));
                         } else {
                             this.state = 'WAITING';
                             this.boardedProcessed = false;
+                            this.game.floatingTexts.push(new FloatingText("FULL!", this.x, this.y - 40, '#f00'));
                         }
                     }
                 }
