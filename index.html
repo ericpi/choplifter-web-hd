@@ -154,6 +154,7 @@
             </div>
             <div class="hud-bottom">
                 <div id="hostages-display">HOSTAGES: 0 / 6</div>
+                <div id="onboard-display" style="margin-left: 20px; color: #0f0;">ONBOARD: 0</div>
             </div>
         </div>
 
@@ -312,6 +313,12 @@
             startLevel(level) {
                 this.stage = level;
                 this.state = 'PLAYING';
+
+                // Reset lives if starting fresh
+                if (level === 1) {
+                    this.lives = 3;
+                }
+
                 this.startScreen.classList.add('hidden');
                 this.gameOverScreen.classList.add('hidden');
                 this.levelScreen.classList.add('hidden');
@@ -322,7 +329,7 @@
                 this.particles = [];
                 this.floatingTexts = [];
                 this.hostagesRescued = 0;
-                this.hostagesTotal = 6; // Fixed 6 per level initially
+                this.hostagesTarget = 6; // Fixed goal per level
                 this.hostageSpawnTimer = 0;
 
                 // Add Player
@@ -331,7 +338,7 @@
                 this.entities.push(this.player);
 
                 // Generate Level
-                // Hostages - Fixed 6
+                // Hostages - Fixed 6 initially
                 for (let i = 0; i < 6; i++) {
                     const hx = 2000 + Math.random() * 16000;
                     this.entities.push(new Hostage(this, hx));
@@ -387,7 +394,9 @@
                 document.getElementById('score-display').innerText = `SCORE: ${this.score}`;
                 document.getElementById('stage-display').innerText = `STAGE: ${this.stage}`;
                 document.getElementById('lives-display').innerText = `LIVES: ${this.lives}`;
-                document.getElementById('hostages-display').innerText = `HOSTAGES: ${this.hostagesRescued} / ${this.hostagesTotal}`;
+                document.getElementById('hostages-display').innerText = `HOSTAGES: ${this.hostagesRescued} / ${this.hostagesTarget}`;
+                const onboard = this.player ? this.player.passengers : 0;
+                document.getElementById('onboard-display').innerText = `ONBOARD: ${onboard}`;
             }
 
             update(dt) {
@@ -399,7 +408,7 @@
                     this.hostageSpawnTimer = 0;
                     const hx = 2000 + Math.random() * 16000;
                     this.entities.push(new Hostage(this, hx));
-                    this.hostagesTotal++;
+                    // Do NOT increase hostagesTarget
                     this.updateUI();
                     this.floatingTexts.push(new FloatingText("REINFORCEMENTS DETECTED!", CANVAS_WIDTH / 2, 200, '#ff0'));
                 }
@@ -784,7 +793,7 @@
                         this.unloadTimer = 0;
 
                         // Check Level Complete
-                        if (this.game.hostagesRescued >= this.game.hostagesTotal) {
+                        if (this.game.hostagesRescued >= this.game.hostagesTarget) {
                             this.game.nextLevel();
                         }
                     }
