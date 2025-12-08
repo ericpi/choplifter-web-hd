@@ -74,6 +74,7 @@
         }
 
         #start-screen,
+        #selection-screen,
         #game-over-screen,
         #level-screen,
         #victory-screen {
@@ -158,11 +159,35 @@
             </div>
         </div>
 
-        <div id="start-screen">
+        <div id="start-screen" class="screen">
             <h1>CHOPLIFTER HD</h1>
             <p style="font-size: 20px; color: #aaa; margin-bottom: 40px;">WASD to Fly | SPACE to Shoot | F for
                 Fullscreen</p>
-            <button class="btn" id="start-btn">DEPLOY</button>
+            <button class="btn" id="start-btn">SELECT CHOPPER</button>
+        </div>
+
+        <div id="selection-screen" class="screen hidden">
+            <h1>SELECT CHOPPER</h1>
+            <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 30px;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <canvas id="preview-md500" width="150" height="100"
+                        style="margin-bottom: 10px; background: rgba(0,0,0,0.3); border-radius: 10px;"></canvas>
+                    <button class="btn select-chopper-btn" data-type="BLACK_HAWK">MD-500 Defender</button>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <canvas id="preview-chinook" width="150" height="100"
+                        style="margin-bottom: 10px; background: rgba(0,0,0,0.3); border-radius: 10px;"></canvas>
+                    <button class="btn select-chopper-btn" data-type="CHINOOK">CH-47 Chinook</button>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <canvas id="preview-airwolf" width="150" height="100"
+                        style="margin-bottom: 10px; background: rgba(0,0,0,0.3); border-radius: 10px;"></canvas>
+                    <button class="btn select-chopper-btn" data-type="AIRWOLF">Airwolf</button>
+                </div>
+            </div>
+            <div id="chopper-preview" style="height: 50px; margin-bottom: 20px; color: #0ff;">
+                SELECT A HELICOPTER TO DEPLOY
+            </div>
         </div>
 
         <div id="level-screen" class="hidden">
@@ -268,6 +293,8 @@
                 this.stage = 1;
                 this.score = 0;
                 this.lives = 3;
+                this.helicopterType = 'BLACK_HAWK';
+                this.timeScale = 1.0;
 
                 this.entities = [];
                 this.particles = [];
@@ -275,6 +302,7 @@
 
                 // Bind UI
                 this.startScreen = document.getElementById('start-screen');
+                this.selectionScreen = document.getElementById('selection-screen');
                 this.gameOverScreen = document.getElementById('game-over-screen');
                 this.levelScreen = document.getElementById('level-screen');
                 this.victoryScreen = document.getElementById('victory-screen');
@@ -283,9 +311,30 @@
                 this.restartBtn = document.getElementById('restart-btn');
                 this.vicRestartBtn = document.getElementById('vic-restart-btn');
 
-                this.startBtn.addEventListener('click', () => this.startLevel(1));
-                this.restartBtn.addEventListener('click', () => this.startLevel(1));
-                this.vicRestartBtn.addEventListener('click', () => this.startLevel(1));
+                this.startBtn.addEventListener('click', () => {
+                    this.startScreen.classList.add('hidden');
+                    this.selectionScreen.classList.remove('hidden');
+                    this.state = 'MENU'; // Ensure menu state for previews
+                });
+
+                document.querySelectorAll('.select-chopper-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.helicopterType = e.target.dataset.type;
+                        this.selectionScreen.classList.add('hidden');
+                        this.startLevel(1);
+                    });
+                });
+
+                // Return to selection screen on game over / victory restart
+                const returnToSelection = () => {
+                    this.gameOverScreen.classList.add('hidden');
+                    this.victoryScreen.classList.add('hidden');
+                    this.selectionScreen.classList.remove('hidden');
+                    this.state = 'MENU';
+                };
+
+                this.restartBtn.addEventListener('click', returnToSelection);
+                this.vicRestartBtn.addEventListener('click', returnToSelection);
 
                 // Resize handler
                 window.addEventListener('resize', () => this.handleResize());
@@ -314,9 +363,10 @@
                 this.stage = level;
                 this.state = 'PLAYING';
 
-                // Reset lives if starting fresh
+                // Reset lives and score if starting fresh
                 if (level === 1) {
                     this.lives = 3;
+                    this.score = 0;
                 }
 
                 this.startScreen.classList.add('hidden');
@@ -393,7 +443,7 @@
             updateUI() {
                 document.getElementById('score-display').innerText = `SCORE: ${this.score}`;
                 document.getElementById('stage-display').innerText = `STAGE: ${this.stage}`;
-                document.getElementById('lives-display').innerText = `LIVES: ${this.lives}`;
+                document.getElementById('lives-display').innerText = `LIVES: ${Math.max(0, this.lives - 1)}`;
                 document.getElementById('hostages-display').innerText = `HOSTAGES: ${this.hostagesRescued} / ${this.hostagesTarget}`;
                 const onboard = this.player ? this.player.passengers : 0;
                 document.getElementById('onboard-display').innerText = `ONBOARD: ${onboard}`;
@@ -671,10 +721,55 @@
                 // Cap dt to avoid spirals
                 if (dt > 0.1) dt = 0.1;
 
+                // Apply Time Scale
+                dt *= this.timeScale;
+
                 this.update(dt);
                 this.draw();
 
+                if (this.state === 'MENU' && !this.selectionScreen.classList.contains('hidden')) {
+                    this.drawSelectionPreviews();
+                }
+
                 requestAnimationFrame(this.loop);
+            }
+
+            drawSelectionPreviews() {
+                if (!this.previewHelis) {
+                    this.previewHelis = {
+                        'BLACK_HAWK': new Helicopter(this),
+                        'CHINOOK': new Helicopter(this),
+                        'AIRWOLF': new Helicopter(this)
+                    };
+                    // Override types for drawing
+                    this.previewHelis['BLACK_HAWK'].typeOverride = 'BLACK_HAWK';
+                    this.previewHelis['CHINOOK'].typeOverride = 'CHINOOK';
+                    this.previewHelis['AIRWOLF'].typeOverride = 'AIRWOLF';
+                }
+
+                const types = [
+                    { id: 'preview-md500', type: 'BLACK_HAWK' },
+                    { id: 'preview-chinook', type: 'CHINOOK' },
+                    { id: 'preview-airwolf', type: 'AIRWOLF' }
+                ];
+
+                types.forEach(t => {
+                    const canvas = document.getElementById(t.id);
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 150, 100);
+
+                    const heli = this.previewHelis[t.type];
+                    heli.x = 75;
+                    heli.y = 50;
+                    heli.rotorFrame += 0.2; // Animate rotors
+
+                    // Scale down slightly to fit
+                    ctx.save();
+                    ctx.scale(0.6, 0.6);
+                    ctx.translate(50, 30); // Center adjustment
+                    heli.draw(ctx);
+                    ctx.restore();
+                });
             }
         }
 
@@ -751,9 +846,15 @@
                         this.markedForDeletion = true;
                         this.game.spawnExplosion(this.x, this.y, 'BIG');
                         this.game.lives--;
+                        this.passengers = 0; // Reset onboard
                         this.game.updateUI();
                         if (this.game.lives <= 0) {
-                            this.game.gameOver();
+                            // Slow Motion Death
+                            this.game.timeScale = 0.25;
+                            setTimeout(() => {
+                                this.game.gameOver();
+                                this.game.timeScale = 1.0;
+                            }, 4000);
                         } else {
                             setTimeout(() => this.game.respawnPlayer(), 2000);
                         }
@@ -819,54 +920,184 @@
                 ctx.shadowBlur = 10;
                 ctx.shadowOffsetY = 10;
 
-                // Main Body
-                const bodyGrad = ctx.createLinearGradient(-40, -20, 40, 20);
-                bodyGrad.addColorStop(0, '#444');
-                bodyGrad.addColorStop(0.5, '#666');
-                bodyGrad.addColorStop(1, '#333');
+                const type = this.typeOverride || this.game.helicopterType || 'BLACK_HAWK';
 
-                ctx.fillStyle = bodyGrad;
-                // Cockpit shape
-                ctx.beginPath();
-                if (this.facingRight) {
-                    ctx.moveTo(-40, -10);
-                    ctx.lineTo(20, -10);
-                    ctx.bezierCurveTo(50, -10, 50, 20, 20, 20);
-                    ctx.lineTo(-30, 20);
-                    ctx.lineTo(-40, 10);
-                } else {
-                    ctx.moveTo(40, -10);
-                    ctx.lineTo(-20, -10);
-                    ctx.bezierCurveTo(-50, -10, -50, 20, -20, 20);
-                    ctx.lineTo(30, 20);
-                    ctx.lineTo(40, 10);
-                }
-                ctx.fill();
+                if (type === 'CHINOOK') {
+                    // --- CHINOOK (Tandem Rotors, Long Body) ---
+                    ctx.fillStyle = '#564';
+                    // Body
+                    ctx.beginPath();
+                    ctx.moveTo(-60, -15);
+                    ctx.lineTo(60, -15);
+                    ctx.lineTo(70, 0);
+                    ctx.lineTo(60, 20);
+                    ctx.lineTo(-60, 20);
+                    ctx.lineTo(-70, 0);
+                    ctx.fill();
 
-                // Cockpit Glass
-                ctx.fillStyle = 'rgba(100, 200, 255, 0.6)';
-                ctx.beginPath();
-                if (this.facingRight) {
-                    ctx.moveTo(0, -5);
-                    ctx.lineTo(20, -5);
-                    ctx.bezierCurveTo(35, -5, 35, 15, 20, 15);
-                    ctx.lineTo(0, 15);
-                } else {
-                    ctx.moveTo(0, -5);
-                    ctx.lineTo(-20, -5);
-                    ctx.bezierCurveTo(-35, -5, -35, 15, -20, 15);
-                    ctx.lineTo(0, 15);
-                }
-                ctx.fill();
+                    // Windows
+                    ctx.fillStyle = '#8ce';
+                    ctx.beginPath();
+                    ctx.arc(60, 0, 8, 0, Math.PI * 2);
+                    ctx.fill();
 
-                // Tail
-                ctx.fillStyle = '#444';
-                if (this.facingRight) {
-                    ctx.fillRect(-70, 0, 40, 10);
-                    ctx.fillRect(-75, -15, 10, 25);
+                    // Rotors (Front and Back) - 15% smaller
+                    this.drawRotor(ctx, -50, -25, 0.85);
+                    this.drawRotor(ctx, 50, -25, 0.85);
+
+                    // Wheels
+                    ctx.fillStyle = '#222';
+                    ctx.beginPath();
+                    ctx.arc(-40, 25, 6, 0, Math.PI * 2);
+                    ctx.arc(40, 25, 6, 0, Math.PI * 2);
+                    ctx.fill();
+
+                } else if (type === 'AIRWOLF') {
+                    // --- AIRWOLF (Sleek, Black/White) ---
+                    // Compressed Height (75%)
+                    ctx.save();
+                    ctx.scale(1, 0.75);
+
+                    // Top Black
+                    ctx.fillStyle = '#222';
+                    ctx.beginPath();
+                    if (this.facingRight) {
+                        ctx.moveTo(-40, -10);
+                        ctx.lineTo(30, -10);
+                        ctx.lineTo(50, 10);
+                        ctx.lineTo(-30, 10);
+                    } else {
+                        ctx.moveTo(40, -10);
+                        ctx.lineTo(-30, -10);
+                        ctx.lineTo(-50, 10);
+                        ctx.lineTo(30, 10);
+                    }
+                    ctx.fill();
+
+                    // Bottom White
+                    ctx.fillStyle = '#eee';
+                    ctx.beginPath();
+                    if (this.facingRight) {
+                        ctx.moveTo(-30, 10);
+                        ctx.lineTo(50, 10);
+                        ctx.lineTo(40, 25);
+                        ctx.lineTo(-20, 25);
+                    } else {
+                        ctx.moveTo(30, 10);
+                        ctx.lineTo(-50, 10);
+                        ctx.lineTo(-40, 25);
+                        ctx.lineTo(20, 25);
+                    }
+                    ctx.fill();
+
+                    // Glass
+                    ctx.fillStyle = '#333';
+                    ctx.beginPath();
+                    if (this.facingRight) {
+                        ctx.moveTo(10, -5);
+                        ctx.lineTo(30, -5);
+                        ctx.lineTo(40, 5);
+                        ctx.lineTo(10, 5);
+                    } else {
+                        ctx.moveTo(-10, -5);
+                        ctx.lineTo(-30, -5);
+                        ctx.lineTo(-40, 5);
+                        ctx.lineTo(-10, 5);
+                    }
+                    ctx.fill();
+
+                    // Tail (Streamlined)
+                    ctx.fillStyle = '#222';
+                    if (this.facingRight) {
+                        ctx.beginPath();
+                        ctx.moveTo(-30, 0); // Connect to body
+                        ctx.quadraticCurveTo(-60, 0, -80, -10); // Smooth curve
+                        ctx.lineTo(-85, -25);
+                        ctx.lineTo(-70, -10);
+                        ctx.lineTo(-40, 5);
+                        ctx.fill();
+                    } else {
+                        ctx.beginPath();
+                        ctx.moveTo(30, 0);
+                        ctx.quadraticCurveTo(60, 0, 80, -10);
+                        ctx.lineTo(85, -25);
+                        ctx.lineTo(70, -10);
+                        ctx.lineTo(40, 5);
+                        ctx.fill();
+                    }
+
+                    ctx.restore(); // End compression
+
+                    // Main Rotor (Outside scale)
+                    this.drawRotor(ctx, 0, -20);
+
                 } else {
-                    ctx.fillRect(30, 0, 40, 10);
-                    ctx.fillRect(65, -15, 10, 25);
+                    // --- BLACK HAWK (Standard) ---
+                    const bodyGrad = ctx.createLinearGradient(-40, -20, 40, 20);
+                    bodyGrad.addColorStop(0, '#343');
+                    bodyGrad.addColorStop(0.5, '#565');
+                    bodyGrad.addColorStop(1, '#232');
+
+                    ctx.fillStyle = bodyGrad;
+                    // Cockpit shape
+                    ctx.beginPath();
+                    if (this.facingRight) {
+                        ctx.moveTo(-40, -10);
+                        ctx.lineTo(20, -10);
+                        ctx.bezierCurveTo(50, -10, 50, 20, 20, 20);
+                        ctx.lineTo(-30, 20);
+                        ctx.lineTo(-40, 10);
+                    } else {
+                        ctx.moveTo(40, -10);
+                        ctx.lineTo(-20, -10);
+                        ctx.bezierCurveTo(-50, -10, -50, 20, -20, 20);
+                        ctx.lineTo(30, 20);
+                        ctx.lineTo(40, 10);
+                    }
+                    ctx.fill();
+
+                    // Cockpit Glass
+                    ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+                    ctx.beginPath();
+                    if (this.facingRight) {
+                        ctx.moveTo(0, -5);
+                        ctx.lineTo(20, -5);
+                        ctx.bezierCurveTo(35, -5, 35, 15, 20, 15);
+                        ctx.lineTo(0, 15);
+                    } else {
+                        ctx.moveTo(0, -5);
+                        ctx.lineTo(-20, -5);
+                        ctx.bezierCurveTo(-35, -5, -35, 15, -20, 15);
+                        ctx.lineTo(0, 15);
+                    }
+                    ctx.fill();
+
+                    // Tail
+                    ctx.fillStyle = '#343';
+                    if (this.facingRight) {
+                        ctx.fillRect(-70, 0, 40, 10);
+                        ctx.fillRect(-75, -15, 10, 25);
+                    } else {
+                        ctx.fillRect(30, 0, 40, 10);
+                        ctx.fillRect(65, -15, 10, 25);
+                    }
+
+                    // Main Rotor
+                    this.drawRotor(ctx, 0, -15);
+
+                    // Skids
+                    ctx.strokeStyle = '#111';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-20, 20);
+                    ctx.lineTo(-20, 28);
+                    ctx.lineTo(20, 28);
+                    ctx.lineTo(20, 20);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(-30, 28);
+                    ctx.lineTo(30, 28);
+                    ctx.stroke();
                 }
 
                 // Muzzle Flash
@@ -878,35 +1109,18 @@
                     ctx.fill();
                 }
 
-                // Rotors
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetY = 0;
-                ctx.fillStyle = 'rgba(20, 20, 20, 0.8)';
+                ctx.restore();
+            }
 
-                const rotorWidth = 140;
-                const rotorHeight = 4;
+            drawRotor(ctx, x, y, scale = 1.0) {
                 ctx.save();
-                ctx.translate(0, -15);
+                ctx.translate(x, y);
+                const rotorWidth = 140 * scale;
+                const rotorHeight = 4;
                 ctx.fillStyle = `rgba(0,0,0, ${0.3 + Math.sin(this.rotorFrame) * 0.2})`;
                 ctx.fillRect(-rotorWidth / 2, -rotorHeight / 2, rotorWidth, rotorHeight);
                 ctx.fillStyle = `rgba(0,0,0, ${0.3 + Math.cos(this.rotorFrame) * 0.2})`;
                 ctx.fillRect(-rotorWidth / 2 * 0.8, -rotorHeight / 2, rotorWidth * 0.8, rotorHeight);
-                ctx.restore();
-
-                // Skids
-                ctx.strokeStyle = '#222';
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.moveTo(-20, 20);
-                ctx.lineTo(-20, 30);
-                ctx.lineTo(20, 30);
-                ctx.lineTo(20, 20);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(-30, 30);
-                ctx.lineTo(30, 30);
-                ctx.stroke();
-
                 ctx.restore();
             }
         }
@@ -985,11 +1199,34 @@
                 ctx.ellipse(0, 0, 8, 3, 0, 0, Math.PI * 2);
                 ctx.fill();
 
+                // Legs Animation
+                if (this.state === 'FOLLOWING') {
+                    const legOffset = Math.sin(this.timer * 15) * 5;
+                    ctx.strokeStyle = '#336';
+                    ctx.lineWidth = 3;
+
+                    // Left Leg
+                    ctx.beginPath();
+                    ctx.moveTo(-2, -10);
+                    ctx.lineTo(-2 - legOffset, 0);
+                    ctx.stroke();
+
+                    // Right Leg
+                    ctx.beginPath();
+                    ctx.moveTo(2, -10);
+                    ctx.lineTo(2 + legOffset, 0);
+                    ctx.stroke();
+                } else {
+                    // Standing
+                    ctx.fillStyle = '#336';
+                    ctx.fillRect(-5, -10, 10, 10);
+                }
+
+                // Body
                 ctx.fillStyle = '#ccf';
                 ctx.fillRect(-5, -25, 10, 15);
-                ctx.fillStyle = '#336';
-                ctx.fillRect(-5, -10, 10, 10);
 
+                // Head
                 ctx.fillStyle = '#fcc';
                 ctx.beginPath();
                 ctx.arc(0, -30, 5, 0, Math.PI * 2);
