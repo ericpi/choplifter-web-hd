@@ -171,42 +171,43 @@
             <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 30px;">
                 <div style="display: flex; flex-direction: column; align-items: center;">
                     <canvas id="preview-md500" width="150" height="100"
-                        style="margin-bottom: 10px; background: rgba(0,0,0,0.3); border-radius: 10px;"></canvas>
+                        style="margin-bottom: 10px; background: #444; border-radius: 10px;"></canvas>
                     <button class="btn select-chopper-btn" data-type="BLACK_HAWK">MD-500 Defender</button>
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: center;">
                     <canvas id="preview-chinook" width="150" height="100"
-                        style="margin-bottom: 10px; background: rgba(0,0,0,0.3); border-radius: 10px;"></canvas>
+                        style="margin-bottom: 10px; background: #444; border-radius: 10px;"></canvas>
                     <button class="btn select-chopper-btn" data-type="CHINOOK">CH-47 Chinook</button>
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: center;">
                     <canvas id="preview-airwolf" width="150" height="100"
-                        style="margin-bottom: 10px; background: rgba(0,0,0,0.3); border-radius: 10px;"></canvas>
+                        style="margin-bottom: 10px; background: #444; border-radius: 10px;"></canvas>
                     <button class="btn select-chopper-btn" data-type="AIRWOLF">Airwolf</button>
                 </div>
             </div>
-            <div id="chopper-preview" style="height: 50px; margin-bottom: 20px; color: #0ff;">
-                SELECT A HELICOPTER TO DEPLOY
-            </div>
+        </div>div>
+        <div id="chopper-preview" style="height: 50px; margin-bottom: 20px; margin-top: 40px; color: #0ff;">
+            SELECT A HELICOPTER TO DEPLOY
         </div>
+    </div>
 
-        <div id="level-screen" class="hidden">
-            <h1 id="level-title">MISSION COMPLETE</h1>
-            <p style="font-size: 24px; margin-bottom: 30px;">PREPARING NEXT SORTIE...</p>
-        </div>
+    <div id="level-screen" class="hidden">
+        <h1 id="level-title">MISSION COMPLETE</h1>
+        <p style="font-size: 24px; margin-bottom: 30px;">PREPARING NEXT SORTIE...</p>
+    </div>
 
-        <div id="victory-screen" class="hidden">
-            <h1>VICTORY</h1>
-            <p style="font-size: 24px; margin-bottom: 30px;">ALL MISSIONS ACCOMPLISHED</p>
-            <p id="vic-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
-            <button class="btn" id="vic-restart-btn">PLAY AGAIN</button>
-        </div>
+    <div id="victory-screen" class="hidden">
+        <h1>VICTORY</h1>
+        <p style="font-size: 24px; margin-bottom: 30px;">ALL MISSIONS ACCOMPLISHED</p>
+        <p id="vic-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
+        <button class="btn" id="vic-restart-btn">PLAY AGAIN</button>
+    </div>
 
-        <div id="game-over-screen" class="hidden">
-            <h1 id="go-title">MISSION FAILED</h1>
-            <p id="go-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
-            <button class="btn" id="restart-btn">RETRY</button>
-        </div>
+    <div id="game-over-screen" class="hidden">
+        <h1 id="go-title">MISSION FAILED</h1>
+        <p id="go-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
+        <button class="btn" id="restart-btn">RETRY</button>
+    </div>
     </div>
 
     <script>
@@ -802,6 +803,24 @@
                 this.maxPassengers = 16;
                 this.lastShot = 0;
                 this.muzzleFlashTimer = 0;
+
+                // Physics Modifiers
+                this.gravityMod = 1.0;
+                this.thrustMod = 1.0;
+                this.speedMod = 1.0;
+
+                const type = this.game.helicopterType || 'BLACK_HAWK';
+                if (type === 'CHINOOK') {
+                    // Descent rate reduced by 20% (Gravity reduced)
+                    this.gravityMod = 0.8;
+                    // Horizontal speed reduced by 10%
+                    this.speedMod = 0.9;
+                } else if (type === 'AIRWOLF') {
+                    // Descent rate increased by 10% (Gravity increased)
+                    this.gravityMod = 1.1;
+                    // Horizontal speed reduced by 25%
+                    this.speedMod = 0.75;
+                }
             }
 
             update(dt) {
@@ -809,20 +828,21 @@
 
                 // Controls
                 if (input.isDown('KeyW')) {
-                    this.vy -= THRUST_POWER;
+                    this.vy -= THRUST_POWER * this.thrustMod;
                 }
                 // Gravity
-                this.vy += GRAVITY;
+                this.vy += GRAVITY * this.gravityMod;
 
                 // Horizontal movement based on tilt
+                const accel = 0.2 * this.speedMod;
                 if (input.isDown('KeyA')) {
                     this.targetAngle = -0.3;
                     this.facingRight = false;
-                    this.vx -= 0.2;
+                    this.vx -= accel;
                 } else if (input.isDown('KeyD')) {
                     this.targetAngle = 0.3;
                     this.facingRight = true;
-                    this.vx += 0.2;
+                    this.vx += accel;
                 } else {
                     this.targetAngle = 0;
                 }
@@ -941,9 +961,9 @@
                     ctx.arc(60, 0, 8, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // Rotors (Front and Back) - 15% smaller
-                    this.drawRotor(ctx, -50, -25, 0.85);
-                    this.drawRotor(ctx, 50, -25, 0.85);
+                    // Rotors (Front and Back) - 35% smaller total (was 15%, now another 20%)
+                    this.drawRotor(ctx, -50, -25, 0.65);
+                    this.drawRotor(ctx, 50, -25, 0.65);
 
                     // Wheels
                     ctx.fillStyle = '#222';
