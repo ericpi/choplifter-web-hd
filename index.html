@@ -128,16 +128,25 @@
         }
 
         #start-screen h1 {
-            position: relative;
+            position: absolute;
+            top: 43%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            margin: 0;
             z-index: 2;
+            text-align: center;
+            white-space: nowrap;
+            line-height: 1;
         }
 
         .start-interactive-area {
-            position: relative;
+            position: absolute;
+            top: 57%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             z-index: 2;
             width: 400px;
             height: 100px;
-            margin-top: 30px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -145,14 +154,25 @@
 
         #start-btn {
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             opacity: 0;
             pointer-events: none;
             transition: opacity 1.5s ease-in-out, transform 0.2s, box-shadow 0.2s;
             white-space: nowrap;
         }
 
+        #start-btn:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+        }
+
         #preload-container {
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             width: 100%;
             display: flex;
             flex-direction: column;

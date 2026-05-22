@@ -66,6 +66,10 @@ stateDiagram-v2
    * **循序載入工作流**：
      * 階段一：啟動載入主畫面背景 `images/cover-01.jpg`。在此過程中，進度條指示器配合 `requestAnimationFrame` 與緩動插值（LERP）算法，將進度平滑推進至 **50%**。
      * 階段二：當 `cover-01.jpg` 載入完畢後，接續啟動載入關卡與過場通用背景 `images/bg-01.jpg`，並將進度指示器平滑推進至 **100%**。
+   * **無版面偏移定位設計 (Zero Layout Shift Architecture)**：為了徹底消除預載進度條隱藏、按鈕出現或字型非同步載入時所產生的版面垂直跳動（Cumulative Layout Shift, CLS）問題，主畫面的標題 `h1` 與互動區域 `.start-interactive-area` 捨棄了會受子元素高度變動影響的彈性盒（Flexbox）垂直置中計算，改為嚴格的**座標鎖定絕對定位**：
+     * 標題 `h1` 固定鎖定於垂直高度 `top: 43%`，互動區域鎖定於 `top: 57%`，並各自搭配 `transform: translate(-50%, -50%)` 與 `line-height: 1` 進行完美的個人化基準線置中。
+     * 互動區內部的進度條 `#preload-container` 與選機按鈕 `#start-btn` 皆以 `position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);` 固定於互動區中央。
+     * 選機按鈕 hover 微動畫特別複寫為 `transform: translate(-50%, -50%) scale(1.05)`，確保懸停放大時按鈕基準線絕不發生偏移或閃爍。
    * **淡入轉場**：進度達到 100% 後，進度條本身優雅淡出（`opacity: 0`），隨後主畫面的背景容器（`#start-bg`）與選機按鈕（`#start-btn`）在 1.5 秒內平滑地淡入（`opacity: 1`），創造出極致高端的街機開機儀式感。
 
 2. **直升機選擇部署預載閘道 (Sortie Deployment Gated Preload)**：
