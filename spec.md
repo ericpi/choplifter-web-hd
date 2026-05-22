@@ -56,8 +56,29 @@ stateDiagram-v2
     VICTORY --> MENU : 按下 PLAY AGAIN 重玩
 ```
 
-### 畫面切換控制
-所有選單畫面（開始畫面、選機畫面、關卡過渡、勝利、遊戲結束）均作為絕對定位的 HTML `div` 覆蓋在 Canvas 之上。狀態轉換時，透過 JavaScript 動態新增或移除 `.hidden` 類別（應用 `display: none !important`）來切換 UI 顯示。
+### 畫面切換控制與背景設計
+所有選單與過渡畫面（開始畫面、選機畫面、關卡過渡、勝利、遊戲結束）均作為絕對定位的 HTML `div` 覆蓋並整合於 `#game-container` 之內，確保在視窗動態縮放（自適應比例）時，所有 UI 設計皆能等比例縮放而不變形。
+
+#### 各畫面背景圖像與覆蓋設定
+* **遊戲起始主畫面 (`#start-screen`)**:
+  * 背景圖像：`images/cover-01.jpg`（完全覆蓋 1920x1080 範圍）
+  * 視覺效果：結合 `linear-gradient` 提供 30% ~ 50% 的暗部漸變遮罩，確保標題字型之可讀性。
+* **選機畫面 (`#selection-screen`)**:
+  * 背景圖像：`images/selection-01.jpg`（完全覆蓋 1920x1080 範圍）
+  * 直升機選項卡（`.chopper-card`）採用高階毛玻璃（Glassmorphism，半透明深色背景結合 `backdrop-filter: blur(8px)`）與懸停青色光暈微動畫。預覽框（`.preview-canvas`）設定為 `rgba(255, 255, 255, 0.25)` 半透明背景，並配有 `rgba(255, 255, 255, 0.3)` 的亮白色邊框，使直升機預覽浮空感更顯著、質感更為精緻。
+  * **三架直升機選擇框大小一致**：設定固定寬度為 `400px`，名稱字體大小調降至 `20px`（縮小 10%），內部按鈕寬度 `100%` 自動適配，防止字體突出或換行。
+  * **選項卡絕對定位佈局**（精準契合背景底圖美術設計）：
+    * **CH-47 Chinook**：畫面中央向左 5% 位置，且向上移動 2%（`top: 228px; left: 45%; transform: translateX(-50%);`）
+    * **AIRWOLF**：向下移動 18% 且向右移動至最右側減 2%（`top: 444px; right: 2%;`）
+    * **MD-500 Defender**：中間下方偏右，且向下移動 6%、向左移動 6%（`bottom: 55px; left: 54%; transform: translateX(-50%);`）
+    * **選機狀態說明 (`#chopper-preview`)**：放置於畫面上方中央（`top: 150px; left: 50%; transform: translateX(-50%);`）
+* **關卡過渡 (`#level-screen`)、勝利 (`#victory-screen`)**:
+  * 背景圖像：`images/bg-01.jpg`（完全覆蓋 1920x1080 範圍，結合 40% ~ 60% 暗色遮罩）。
+* **遊戲結束畫面 (`#game-over-screen`)**:
+  * 依據遊戲時所使用的直升機機型，分別動態顯示專屬背景圖（完全覆蓋 1920x1080 範圍，結合 40% ~ 60% 暗色遮罩）：
+    * **Airwolf (`AIRWOLF`)**：`images/AIRWOLF_gameover.jpg`
+    * **CH-47 Chinook (`CHINOOK`)**：`images/CH47_gameover.jpg`
+    * **MD-500 Defender (`BLACK_HAWK`)**：`images/MD500_gameover.jpg`
 
 ### 關卡與難度曲線
 * **基本目標**：每關過關的目標救援人數固定為 **6 名** 人質（`hostagesTarget = 6`）。

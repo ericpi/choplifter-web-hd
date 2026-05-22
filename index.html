@@ -74,7 +74,6 @@
         }
 
         #start-screen,
-        #selection-screen,
         #game-over-screen,
         #level-screen,
         #victory-screen {
@@ -83,13 +82,121 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 10;
-            backdrop-filter: blur(5px);
+        }
+
+        #start-screen {
+            background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url('images/cover-01.jpg') no-repeat center center;
+            background-size: cover;
+        }
+
+        #selection-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4)), url('images/selection-01.jpg') no-repeat center center;
+            background-size: cover;
+            z-index: 10;
+        }
+
+        #level-screen,
+        #victory-screen,
+        #game-over-screen {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('images/bg-01.jpg') no-repeat center center;
+            background-size: cover;
+        }
+
+        #selection-screen h1 {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            margin: 0;
+            font-size: 70px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            white-space: nowrap;
+        }
+
+        #chopper-preview {
+            position: absolute;
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        .chopper-card {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            backdrop-filter: blur(8px);
+            width: 400px;
+            box-sizing: border-box;
+        }
+
+        .chopper-card .select-chopper-btn {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px 5px;
+            font-size: 20px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .chopper-card:hover {
+            border-color: #0ff;
+            box-shadow: 0 15px 35px rgba(0, 255, 255, 0.3);
+        }
+
+        .card-airwolf:hover {
+            transform: translateY(-5px) scale(1.03);
+        }
+
+        .card-chinook:hover,
+        .card-md500:hover {
+            transform: translateX(-50%) translateY(-5px) scale(1.03);
+        }
+
+        .preview-canvas {
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Positions for individual helicopter cards based on design request */
+        .card-chinook {
+            top: 228px;
+            left: 45%;
+            transform: translateX(-50%);
+        }
+
+        .card-airwolf {
+            top: 444px;
+            right: 2%;
+        }
+
+        .card-md500 {
+            bottom: 55px;
+            left: 54%;
+            transform: translateX(-50%);
         }
 
         h1 {
@@ -168,28 +275,26 @@
 
         <div id="selection-screen" class="screen hidden">
             <h1>SELECT CHOPPER</h1>
-            <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 30px;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <canvas id="preview-md500" width="150" height="100"
-                        style="margin-bottom: 10px; background: #444; border-radius: 10px;"></canvas>
-                    <button class="btn select-chopper-btn" data-type="BLACK_HAWK">MD-500 Defender</button>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <canvas id="preview-chinook" width="150" height="100"
-                        style="margin-bottom: 10px; background: #444; border-radius: 10px;"></canvas>
-                    <button class="btn select-chopper-btn" data-type="CHINOOK">CH-47 Chinook</button>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <canvas id="preview-airwolf" width="150" height="100"
-                        style="margin-bottom: 10px; background: #444; border-radius: 10px;"></canvas>
-                    <button class="btn select-chopper-btn" data-type="AIRWOLF">Airwolf</button>
-                </div>
+            <div id="chopper-preview">SELECT A HELICOPTER TO DEPLOY</div>
+
+            <!-- CH-47 Chinook: Top-left -->
+            <div class="chopper-card card-chinook">
+                <canvas id="preview-chinook" width="150" height="100" class="preview-canvas"></canvas>
+                <button class="btn select-chopper-btn" data-type="CHINOOK">CH-47 Chinook</button>
             </div>
-        </div>div>
-        <div id="chopper-preview" style="height: 50px; margin-bottom: 20px; margin-top: 40px; color: #0ff;">
-            SELECT A HELICOPTER TO DEPLOY
+
+            <!-- AIRWOLF: Top-right -->
+            <div class="chopper-card card-airwolf">
+                <canvas id="preview-airwolf" width="150" height="100" class="preview-canvas"></canvas>
+                <button class="btn select-chopper-btn" data-type="AIRWOLF">Airwolf</button>
+            </div>
+
+            <!-- MD-500 Defender: Middle-bottom shifted slightly right -->
+            <div class="chopper-card card-md500">
+                <canvas id="preview-md500" width="150" height="100" class="preview-canvas"></canvas>
+                <button class="btn select-chopper-btn" data-type="BLACK_HAWK">MD-500 Defender</button>
+            </div>
         </div>
-    </div>
 
     <div id="level-screen" class="hidden">
         <h1 id="level-title">MISSION COMPLETE</h1>
@@ -543,6 +648,19 @@
 
             gameOver() {
                 this.state = 'GAMEOVER';
+                
+                // Select dynamic background image based on helicopter type
+                let bgImage = 'images/bg-01.jpg'; // fallback
+                if (this.helicopterType === 'AIRWOLF') {
+                    bgImage = 'images/AIRWOLF_gameover.jpg';
+                } else if (this.helicopterType === 'CHINOOK') {
+                    bgImage = 'images/CH47_gameover.jpg';
+                } else if (this.helicopterType === 'BLACK_HAWK') {
+                    bgImage = 'images/MD500_gameover.jpg';
+                }
+                
+                this.gameOverScreen.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('${bgImage}')`;
+                
                 this.gameOverScreen.classList.remove('hidden');
                 document.getElementById('go-score').innerText = `FINAL SCORE: ${this.score}`;
             }
