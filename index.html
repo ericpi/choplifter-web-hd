@@ -1014,6 +1014,11 @@
                                     this.score += 100;
                                     this.updateUI();
                                 } else if (t instanceof Helicopter) {
+                                    if (t.isDisembarking) {
+                                        p.markedForDeletion = true;
+                                        this.spawnExplosion(p.x, p.y, 'SMALL');
+                                        return;
+                                    }
                                     t.markedForDeletion = true;
                                     this.spawnExplosion(t.x, t.y, 'BIG');
                                     this.lives--;
@@ -1376,41 +1381,51 @@
                     this.speedMod = 1.41;
                     this.shootCooldown = 211; // 95% density (200 / 0.95)
                 }
+                this.isDisembarking = false;
+                this.unloadTimer = 0;
             }
 
             update(dt) {
                 const input = this.game.input;
 
                 // Controls
-                if (input.isDown('KeyW')) {
-                    this.vy -= THRUST_POWER * this.thrustMod;
-                }
-                // Gravity
-                this.vy += GRAVITY * this.gravityMod;
-
-                // Horizontal movement based on tilt (disabled on ground to prevent sliding)
-                const accel = 0.2 * this.speedMod;
-                const isOnGround = this.y >= CANVAS_HEIGHT - 100 - this.height / 2 - 1;
-                if (input.isDown('KeyA')) {
-                    this.facingRight = false;
-                    if (!isOnGround) {
-                        this.targetAngle = -0.3;
-                        this.vx -= accel;
-                    } else {
-                        this.targetAngle = 0;
-                        this.vx = 0;
-                    }
-                } else if (input.isDown('KeyD')) {
-                    this.facingRight = true;
-                    if (!isOnGround) {
-                        this.targetAngle = 0.3;
-                        this.vx += accel;
-                    } else {
-                        this.targetAngle = 0;
-                        this.vx = 0;
-                    }
-                } else {
+                if (this.isDisembarking) {
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.angle = 0;
                     this.targetAngle = 0;
+                    this.y = CANVAS_HEIGHT - 100 - this.height / 2;
+                } else {
+                    if (input.isDown('KeyW')) {
+                        this.vy -= THRUST_POWER * this.thrustMod;
+                    }
+                    // Gravity
+                    this.vy += GRAVITY * this.gravityMod;
+
+                    // Horizontal movement based on tilt (disabled on ground to prevent sliding)
+                    const accel = 0.2 * this.speedMod;
+                    const isOnGround = this.y >= CANVAS_HEIGHT - 100 - this.height / 2 - 1;
+                    if (input.isDown('KeyA')) {
+                        this.facingRight = false;
+                        if (!isOnGround) {
+                            this.targetAngle = -0.3;
+                            this.vx -= accel;
+                        } else {
+                            this.targetAngle = 0;
+                            this.vx = 0;
+                        }
+                    } else if (input.isDown('KeyD')) {
+                        this.facingRight = true;
+                        if (!isOnGround) {
+                            this.targetAngle = 0.3;
+                            this.vx += accel;
+                        } else {
+                            this.targetAngle = 0;
+                            this.vx = 0;
+                        }
+                    } else {
+                        this.targetAngle = 0;
+                    }
                 }
 
                 // Smooth rotation
@@ -1421,35 +1436,42 @@
                 this.vy *= 0.99; // Air resistance
 
                 // Apply velocity
-                this.x += this.vx;
-                this.y += this.vy;
+                if (!this.isDisembarking) {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
 
                 // Ground Collision
                 if (this.y > CANVAS_HEIGHT - 100 - this.height / 2) {
-                    // Check crash velocity
-                    if (this.vy > 4.0) {
-                        // Crash
-                        this.markedForDeletion = true;
-                        this.game.spawnExplosion(this.x, this.y, 'BIG');
-                        this.game.lives--;
-                        this.passengers = 0; // Reset onboard
-                        this.game.updateUI();
-                        if (this.game.lives <= 0) {
-                            // Slow Motion Death
-                            this.game.timeScale = 0.25;
-                            setTimeout(() => {
-                                this.game.gameOver();
-                                this.game.timeScale = 1.0;
-                            }, 4000);
-                        } else {
-                            setTimeout(() => this.game.respawnPlayer(), 2000);
-                        }
-                    } else {
-                        // Safe landing
+                    if (this.isDisembarking) {
                         this.y = CANVAS_HEIGHT - 100 - this.height / 2;
                         this.vy = 0;
-                        this.vx *= 0.8; // Ground friction
-                        this.angle = 0;
+                    } else {
+                        // Check crash velocity
+                        if (this.vy > 4.0) {
+                            // Crash
+                            this.markedForDeletion = true;
+                            this.game.spawnExplosion(this.x, this.y, 'BIG');
+                            this.game.lives--;
+                            this.passengers = 0; // Reset onboard
+                            this.game.updateUI();
+                            if (this.game.lives <= 0) {
+                                // Slow Motion Death
+                                this.game.timeScale = 0.25;
+                                setTimeout(() => {
+                                    this.game.gameOver();
+                                    this.game.timeScale = 1.0;
+                                }, 4000);
+                            } else {
+                                setTimeout(() => this.game.respawnPlayer(), 2000);
+                            }
+                        } else {
+                            // Safe landing
+                            this.y = CANVAS_HEIGHT - 100 - this.height / 2;
+                            this.vy = 0;
+                            this.vx *= 0.8; // Ground friction
+                            this.angle = 0;
+                        }
                     }
                 }
 
@@ -1477,25 +1499,39 @@
                 if (this.muzzleFlashTimer > 0) this.muzzleFlashTimer -= dt;
 
                 // Shooting
-                if (input.isDown('Space') && this.game.lastTime - this.lastShot > this.shootCooldown) {
+                if (!this.isDisembarking && input.isDown('Space') && this.game.lastTime - this.lastShot > this.shootCooldown) {
                     this.shoot();
                     this.lastShot = this.game.lastTime;
                 }
 
-                // Unload Passengers
+                // Unload Passengers Sequential Cutscene
                 if (this.x < 400 && this.y > CANVAS_HEIGHT - 150 && this.passengers > 0) {
-                    if (!this.unloadTimer) this.unloadTimer = 0;
-                    this.unloadTimer += dt;
-                    if (this.unloadTimer > 0.2) {
-                        this.passengers--;
-                        this.game.score += 50;
-                        this.game.hostagesRescued++;
-                        this.game.updateUI();
+                    if (!this.isDisembarking) {
+                        this.isDisembarking = true;
                         this.unloadTimer = 0;
+                    }
+                }
 
-                        // Check Level Complete
-                        if (this.game.hostagesRescued >= this.game.hostagesTarget) {
-                            this.game.nextLevel();
+                if (this.isDisembarking) {
+                    if (this.passengers > 0) {
+                        this.unloadTimer += dt;
+                        if (this.unloadTimer >= 0.5) { // Spawn sequentially every 0.5s
+                            this.passengers--;
+                            this.game.updateUI();
+                            this.unloadTimer = 0;
+
+                            // Spawn disembarked hostage running towards base door (x = 200)
+                            const h = new Hostage(this.game, this.x);
+                            h.state = 'RUNNING_TO_BASE';
+                            h.facingRight = (this.x < 200);
+                            this.game.entities.push(h);
+                        }
+                    } else {
+                        // All passengers have disembarked. Check if any running hostages are still heading to the base
+                        const runningHostages = this.game.entities.filter(e => e instanceof Hostage && e.state === 'RUNNING_TO_BASE' && !e.markedForDeletion).length;
+                        if (runningHostages === 0) {
+                            // Cutscene finished! Re-enable player controls
+                            this.isDisembarking = false;
                         }
                     }
                 }
@@ -1900,6 +1936,28 @@
                             this.game.floatingTexts.push(new FloatingText("FULL!", this.x, this.y - 40, '#f00'));
                         }
                     }
+                } else if (this.state === 'RUNNING_TO_BASE') {
+                    const targetX = 200;
+                    const distToTarget = targetX - this.x;
+                    if (Math.abs(distToTarget) < 5) {
+                        // Reached door! Secure hostage
+                        this.markedForDeletion = true;
+                        this.game.score += 50;
+                        this.game.hostagesRescued++;
+                        this.game.updateUI();
+
+                        // Neon cyan secured text
+                        this.game.floatingTexts.push(new FloatingText("+50 SECURED", 200, CANVAS_HEIGHT - 180, '#0ff'));
+
+                        // Check Stage Victory
+                        if (this.game.hostagesRescued >= this.game.hostagesTarget) {
+                            this.game.nextLevel();
+                        }
+                    } else {
+                        const dir = Math.sign(distToTarget);
+                        this.x += dir * this.speed * 1.5; // Fast sprint to safety
+                        this.facingRight = (dir > 0);
+                    }
                 }
             }
 
@@ -1915,7 +1973,7 @@
                 ctx.fill();
 
                 // Legs & Arms Animation
-                if (this.state === 'FOLLOWING') {
+                if (this.state === 'FOLLOWING' || this.state === 'RUNNING_TO_BASE') {
                     const cycle = this.timer * 18; // Speed of swing
                     const legOffset = Math.sin(cycle) * 7;
                     const armOffset = Math.cos(cycle) * 8;
