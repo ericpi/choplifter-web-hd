@@ -38,7 +38,6 @@ This project is engineered for optimal performance on web platforms utilizing mo
 
 - **Rendering Engine**: HTML5 Canvas / WebGL for smooth 60FPS high-definition performance.
 - **Physics Framework**: Custom rigid-body and aerodynamic simulation handling lift, weight, drag, and rotor propulsion dynamics tailored for each helicopter asset.
-- **Audio Engine**: Web Audio API rendering reactive soundscapes, rotor thumps, and dynamic warfare audio.
 
 ## 📦 Getting Started & Installation
 
