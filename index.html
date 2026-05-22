@@ -885,22 +885,17 @@
                 ctx.beginPath();
                 ctx.moveTo(0, CANVAS_HEIGHT);
 
-                const patternWidth = 2000;
-                // Ensure positive offset for smooth looping
-                const offset = ((scrollX % patternWidth) + patternWidth) % patternWidth;
-
-                ctx.lineTo(0, CANVAS_HEIGHT);
-
-                // Draw enough segments to cover screen + buffer
-                // Start from -patternWidth to cover left edge when scrolling
-                for (let x = -patternWidth; x < CANVAS_WIDTH + patternWidth; x += 50) {
-                    const wx = x + (patternWidth - offset); // Shifted x
+                // Draw from -100 to CANVAS_WIDTH + 100 to fully cover the screen with smooth padding
+                const buffer = 100;
+                for (let x = -buffer; x <= CANVAS_WIDTH + buffer; x += 20) { // Reduced step size from 50 to 20 for high-fidelity smooth mountain curves
+                    const wx = x - scrollX; // Seamless, continuous world coordinate for the scrolling parallax layer
                     const noise = Math.sin(wx * 0.005) + Math.sin(wx * 0.01) * 0.5;
                     const y = CANVAS_HEIGHT - height + noise * variance;
                     ctx.lineTo(x, y);
                 }
 
                 ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.lineTo(0, CANVAS_HEIGHT);
                 ctx.fill();
             }
 

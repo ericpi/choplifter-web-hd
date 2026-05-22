@@ -285,15 +285,17 @@ $$\text{camX} \leftarrow \text{camX} + (\text{camX}_{target} - \text{camX}) \tim
 3. **中山第二層 (Mid Mountains, 滾動率 30%)**：隨相機移動 $\text{camX} \times 0.3$。
 4. **近山第三層 (Near Mountains, 滾動率 60%)**：隨相機移動 $\text{camX} \times 0.6$。
 
-#### 山脈平滑無接縫渲染演算法
-為了防止在超大地圖中滾動時山脈圖案邊緣出現截斷或閃爍，繪製山脈的自訂方法 `drawMountainLayer` 採用了**正向取模循環演算法**：
-```javascript
-const patternWidth = 2000;
-const offset = ((scrollX % patternWidth) + patternWidth) % patternWidth;
-```
-山脈邊界在 $x$ 軸從 $-\text{patternWidth}$ 繪製到 $\text{CANVAS\_WIDTH} + \text{patternWidth}$，並將每個節點的橫坐標加上該循環偏移量 `offset`。山脊高度則使用 Sine 噪聲疊加公式即時生成：
-$$y = \text{CANVAS\_HEIGHT} - \text{baseHeight} + (\sin(wx \times 0.005) + \sin(wx \times 0.01) \times 0.5) \times \text{variance}$$
-此演算法保證了山脊的起伏在無限移動時呈現自然的有機感，且毫無接縫。
+#### 山脈平滑無接縫與防跳動渲染演算法
+原先系統採用基於 `scrollX % patternWidth` 的取模循環法繪製山脈，但因正弦噪聲波形週期 ($400\pi \approx 1256.637$) 與取模寬度基準 ($2000$) 無法整除，導致在邊界跨越時坐標值 `wx` 產生不連續的階段性跳變，造成山脊視覺上出現跳動與閃爍。
+
+為此，繪製山脈的方法 `drawMountainLayer` 已完全重構為**無縫絕對坐標渲染法**：
+1. **世界坐標對齊**：直接使用 screen 坐標 $x$ 與滾動偏移量 `scrollX` 計算每個頂點的絕對世界坐標：
+   $$wx = x - \text{scrollX}$$
+   由於不涉及任何取模與範圍限幅運算，`wx` 隨相機移動時會完全連續、平滑地推移，從數學層面上 100% 根除了不連續跳變的 Bug。
+2. **高保真平滑曲線**：將繪圖水平步進解析度由 `50px` 縮小至 `20px`，配合 Sine 噪聲疊加公式即時渲染山脊高度：
+   $$y = \text{CANVAS\_HEIGHT} - \text{baseHeight} + (\sin(wx \times 0.005) + \sin(wx \times 0.01) \times 0.5) \times \text{variance}$$
+3. **視區完美包覆**：頂點範圍從 $-100\text{px}$ 繪製到 $\text{CANVAS\_WIDTH} + 100\text{px}$，在維持優越效能的同時提供毫無接縫、圓滑無比的動態山巒視覺效果。
+
 
 ### 8.2 時間與天體渲染系統 (Celestial & Atmospheric Render)
 隨關卡時間循環，天空與天體會重新渲染：
