@@ -331,23 +331,23 @@
             </div>
         </div>
 
-    <div id="level-screen" class="hidden">
-        <h1 id="level-title">MISSION COMPLETE</h1>
-        <p style="font-size: 24px; margin-bottom: 30px;">PREPARING NEXT SORTIE...</p>
-    </div>
+        <div id="level-screen" class="hidden">
+            <h1 id="level-title">MISSION COMPLETE</h1>
+            <p style="font-size: 24px; margin-bottom: 30px;">PREPARING NEXT SORTIE...</p>
+        </div>
 
-    <div id="victory-screen" class="hidden">
-        <h1>VICTORY</h1>
-        <p style="font-size: 24px; margin-bottom: 30px;">ALL MISSIONS ACCOMPLISHED</p>
-        <p id="vic-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
-        <button class="btn" id="vic-restart-btn">PLAY AGAIN</button>
-    </div>
+        <div id="victory-screen" class="hidden">
+            <h1>VICTORY</h1>
+            <p style="font-size: 24px; margin-bottom: 30px;">ALL MISSIONS ACCOMPLISHED</p>
+            <p id="vic-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
+            <button class="btn" id="vic-restart-btn">PLAY AGAIN</button>
+        </div>
 
-    <div id="game-over-screen" class="hidden">
-        <h1 id="go-title">MISSION FAILED</h1>
-        <p id="go-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
-        <button class="btn" id="restart-btn">RETRY</button>
-    </div>
+        <div id="game-over-screen" class="hidden">
+            <h1 id="go-title">MISSION FAILED</h1>
+            <p id="go-score" style="font-size: 24px; margin-bottom: 30px;">FINAL SCORE: 0</p>
+            <button class="btn" id="restart-btn">RETRY</button>
+        </div>
     </div>
 
     <script>
@@ -489,17 +489,17 @@
 
             handleResize() {
                 const container = document.getElementById('game-container');
-                
+
                 // Calculate dynamic aspect scale factor relative to height
                 const scale = window.innerHeight / CANVAS_HEIGHT;
-                
+
                 // Calculate dynamic logical horizontal width
                 CANVAS_WIDTH = window.innerWidth / scale;
-                
+
                 // Update canvas resolution and container bounds
                 this.canvas.width = CANVAS_WIDTH;
                 this.canvas.height = CANVAS_HEIGHT;
-                
+
                 container.style.width = `${CANVAS_WIDTH}px`;
                 container.style.height = `${CANVAS_HEIGHT}px`;
                 container.style.transform = `scale(${scale})`;
@@ -516,7 +516,7 @@
 
                 // 1. Fade the black overlay IN (which fades out the current view to solid black)
                 overlay.style.opacity = '1';
-                
+
                 setTimeout(() => {
                     // 2. Once overlay is fully black (after 400ms):
                     // Hide the fromScreen
@@ -529,12 +529,12 @@
                         toScreen.classList.remove('hidden');
                         toScreen.style.opacity = '1';
                     }
-                    
+
                     // Call the callback to initialize the next state (e.g. startLevel, returnToSelection, etc.)
                     if (callback) {
                         callback();
                     }
-                    
+
                     // Trigger a reflow
                     overlay.offsetHeight;
 
@@ -650,7 +650,7 @@
                     this.entities.push(new Hostage(this, hx));
                     // Do NOT increase hostagesTarget
                     this.updateUI();
-                    this.floatingTexts.push(new FloatingText("REINFORCEMENTS DETECTED!", CANVAS_WIDTH / 2, 200, '#ff0'));
+                    this.floatingTexts.push(new FloatingText("HOSTAGES DETECTED!", CANVAS_WIDTH / 2, 200, '#ff0'));
                 }
 
                 // Update Entities
@@ -737,7 +737,7 @@
 
             gameOver() {
                 this.state = 'GAMEOVER';
-                
+
                 // Select dynamic background image based on helicopter type
                 let bgImage = 'images/bg-01.jpg'; // fallback
                 if (this.helicopterType === 'AIRWOLF') {
@@ -747,9 +747,9 @@
                 } else if (this.helicopterType === 'BLACK_HAWK') {
                     bgImage = 'images/MD500_gameover.jpg';
                 }
-                
+
                 this.gameOverScreen.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('${bgImage}')`;
-                
+
                 document.getElementById('go-score').innerText = `FINAL SCORE: ${this.score}`;
                 this.fadeTransition(null, this.gameOverScreen);
             }
@@ -915,15 +915,9 @@
                     ctx.fillRect(i * 100, CANVAS_HEIGHT - 100, 50, 20);
                 }
 
-                // Base (Start)
-                ctx.fillStyle = '#334';
-                ctx.fillRect(100, CANVAS_HEIGHT - 120, 300, 20);
-                // Base Building
-                ctx.fillStyle = '#223';
-                ctx.fillRect(150, CANVAS_HEIGHT - 180, 100, 60);
                 // Flag (Blue and white stripes)
                 const flagX = 200;
-                const flagY = CANVAS_HEIGHT - 220;
+                const flagY = CANVAS_HEIGHT - 200;
                 const flagW = 40;
                 const flagH = 30;
                 const numStripes = 5;
@@ -933,7 +927,15 @@
                     ctx.fillRect(flagX, flagY + j * stripeH, flagW, stripeH);
                 }
                 ctx.fillStyle = '#fff';
-                ctx.fillRect(198, CANVAS_HEIGHT - 220, 2, 120);
+                ctx.fillRect(198, CANVAS_HEIGHT - 200, 2, 100);
+
+                // Base (Start)
+                const isDarkBg = this.timeOfDay !== 'DAY';
+                ctx.fillStyle = isDarkBg ? '#51516b' : '#334'; // Base platform: #334 + 15% brightness = #51516b
+                ctx.fillRect(100, CANVAS_HEIGHT - 100, 300, 20);
+                // Base Building
+                ctx.fillStyle = isDarkBg ? '#40405e' : '#223'; // Base building: #223 + 15% brightness = #40405e
+                ctx.fillRect(150, CANVAS_HEIGHT - 160, 100, 60);
             }
 
             loop(timestamp) {
@@ -1189,15 +1191,18 @@
                     // 3-way spread missiles, 4.5 degrees apart (0.0785 rad), rotated clockwise by 6 degrees (0.10472 rad)
                     const rot6 = 6 * Math.PI / 180;
                     const angles = [baseAngle - 0.0785 + rot6, baseAngle + rot6, baseAngle + 0.0785 + rot6];
+                    const airwolfOffX = this.facingRight ? 25 : -25; // front 1/3 of belly close to nose
+                    const airwolfOffY = 18; // lower belly skin boundary
                     angles.forEach(angle => {
-                        const p = new Projectile(this.game, this.x + offX, this.y + 10, angle, true, 'MISSILE');
+                        const p = new Projectile(this.game, this.x + airwolfOffX, this.y + airwolfOffY, angle, true, 'MISSILE');
                         p.vx += this.vx;
                         this.game.entities.push(p);
                     });
                     this.muzzleFlashTimer = 0.05;
                 } else if (type === 'CHINOOK') {
                     // Falling bomb with helicopter's horizontal speed inertia (120% effect) and slight downward push (reduced by 15% from 3 to 2.55)
-                    const p = new Projectile(this.game, this.x + offX, this.y + 15, baseAngle, true, 'BOMB');
+                    // Firing point is exactly at the lower belly center (x_offset = 0, y_offset = 20)
+                    const p = new Projectile(this.game, this.x, this.y + 20, baseAngle, true, 'BOMB');
                     p.vx = this.vx * 1.2;
                     p.vy = this.vy + 2.55;
                     this.game.entities.push(p);
@@ -1416,7 +1421,7 @@
                     if (this.facingRight) {
                         ctx.fillRect(-70, 0, 40, 10);
                         ctx.fillRect(-75, -15, 10, 25);
-                        
+
                         // Splotches on tail boom
                         ctx.fillStyle = '#aa8c55';
                         ctx.fillRect(-55, 0, 12, 10);
@@ -1425,7 +1430,7 @@
                     } else {
                         ctx.fillRect(30, 0, 40, 10);
                         ctx.fillRect(65, -15, 10, 25);
-                        
+
                         // Splotches on tail boom
                         ctx.fillStyle = '#aa8c55';
                         ctx.fillRect(43, 0, 12, 10);
@@ -1455,8 +1460,20 @@
                 if (this.muzzleFlashTimer > 0) {
                     ctx.fillStyle = '#ff9';
                     ctx.beginPath();
-                    const mx = this.facingRight ? 45 : -45;
-                    ctx.arc(mx, 10, 10 + Math.random() * 10, 0, Math.PI * 2);
+                    let mx = this.facingRight ? 45 : -45;
+                    let my = 10;
+                    const type = this.typeOverride || this.game.helicopterType || 'BLACK_HAWK';
+                    if (type === 'AIRWOLF') {
+                        mx = this.facingRight ? 25 : -25;
+                        my = 18;
+                    } else if (type === 'CHINOOK') {
+                        mx = 0;
+                        my = 20;
+                    } else {
+                        mx = this.facingRight ? 40 : -40;
+                        my = 10;
+                    }
+                    ctx.arc(mx, my, 10 + Math.random() * 10, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
@@ -1468,11 +1485,11 @@
                 ctx.translate(x, y);
                 const rotorWidth = 140 * scale;
                 const rotorHeight = 4;
-                
+
                 // If the game background is dark (i.e. not 'DAY'), use light grey for rotors
                 const isDarkBg = this.game.timeOfDay !== 'DAY';
                 const rColor = isDarkBg ? '220, 220, 220' : '0, 0, 0';
-                
+
                 ctx.fillStyle = `rgba(${rColor}, ${0.3 + Math.sin(this.rotorFrame) * 0.2})`;
                 ctx.fillRect(-rotorWidth / 2, -rotorHeight / 2, rotorWidth, rotorHeight);
                 ctx.fillStyle = `rgba(${rColor}, ${0.3 + Math.cos(this.rotorFrame) * 0.2})`;
@@ -1543,11 +1560,11 @@
 
                             // Synonymous thank you messages displayed above the helicopter (player) without "saved" text
                             const thankYouTexts = [
-                                "Thank You!", "Thanks, Captain!", "Freedom at last!", 
+                                "Thank You!", "Thanks, Captain!", "Freedom at last!",
                                 "Cheers, mate!", "Much obliged!", "Awesome!", "Yay!"
                             ];
                             const randomText = thankYouTexts[Math.floor(Math.random() * thankYouTexts.length)];
-                            
+
                             const px = this.game.player.x;
                             const py = this.game.player.y - this.game.player.height - 20;
 
@@ -1570,6 +1587,8 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
 
+                const isDarkBg = this.game.timeOfDay !== 'DAY';
+
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 8, 3, 0, 0, Math.PI * 2);
@@ -1580,8 +1599,8 @@
                     const cycle = this.timer * 18; // Speed of swing
                     const legOffset = Math.sin(cycle) * 7;
                     const armOffset = Math.cos(cycle) * 8;
-                    
-                    ctx.strokeStyle = '#336';
+
+                    ctx.strokeStyle = isDarkBg ? '#aab' : '#336';
                     ctx.lineWidth = 3.5;
 
                     // Left Leg (Back leg)
@@ -1597,7 +1616,7 @@
                     ctx.stroke();
 
                     // Swinging Arms
-                    ctx.strokeStyle = '#225'; // slightly darker than body for depth
+                    ctx.strokeStyle = isDarkBg ? '#88a' : '#225'; // slightly darker than body for depth
                     ctx.lineWidth = 3;
 
                     // Left Arm (Back arm)
@@ -1613,13 +1632,13 @@
                     ctx.stroke();
                 } else {
                     // Standing legs
-                    ctx.fillStyle = '#336';
+                    ctx.fillStyle = isDarkBg ? '#aab' : '#336';
                     ctx.fillRect(-4, -10, 3, 10);
                     ctx.fillRect(1, -10, 3, 10);
 
                     // Standing arms (only draw if not waving or boarding)
                     if (this.state !== 'WAVING' && this.state !== 'BOARDING') {
-                        ctx.strokeStyle = '#336';
+                        ctx.strokeStyle = isDarkBg ? '#aab' : '#336';
                         ctx.lineWidth = 2.5;
                         ctx.beginPath();
                         ctx.moveTo(-6, -22);
@@ -1757,7 +1776,7 @@
                     this.vy = 0;
                     this.width = 24;
                     this.height = 12;
-                    this.life = 5.0; 
+                    this.life = 5.0;
                 } else if (type === 'MISSILE') {
                     // Missiles travel fast in shot direction
                     this.vx = Math.cos(angle) * 18;
