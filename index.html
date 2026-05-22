@@ -31,12 +31,13 @@
         }
 
         #game-container {
-            position: relative;
+            position: absolute;
             width: 1920px;
             height: 1080px;
             box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
             background: #000;
             overflow: hidden;
+            flex-shrink: 0;
         }
 
         canvas {
@@ -183,8 +184,8 @@
 
         /* Positions for individual helicopter cards based on design request */
         .card-chinook {
-            top: 228px;
-            left: 45%;
+            top: 271px;
+            left: 13%;
             transform: translateX(-50%);
         }
 
@@ -317,7 +318,7 @@
 
     <script>
         // --- CONSTANTS & CONFIG ---
-        const CANVAS_WIDTH = 1920;
+        let CANVAS_WIDTH = 1920;
         const CANVAS_HEIGHT = 1080;
         const GRAVITY = 0.0525; // Reduced by another 30%
         const FRICTION = 0.98;
@@ -452,16 +453,19 @@
 
             handleResize() {
                 const container = document.getElementById('game-container');
-                const aspect = CANVAS_WIDTH / CANVAS_HEIGHT;
-                const windowAspect = window.innerWidth / window.innerHeight;
-
-                let scale;
-                if (windowAspect < aspect) {
-                    scale = window.innerWidth / CANVAS_WIDTH;
-                } else {
-                    scale = window.innerHeight / CANVAS_HEIGHT;
-                }
-
+                
+                // Calculate dynamic aspect scale factor relative to height
+                const scale = window.innerHeight / CANVAS_HEIGHT;
+                
+                // Calculate dynamic logical horizontal width
+                CANVAS_WIDTH = window.innerWidth / scale;
+                
+                // Update canvas resolution and container bounds
+                this.canvas.width = CANVAS_WIDTH;
+                this.canvas.height = CANVAS_HEIGHT;
+                
+                container.style.width = `${CANVAS_WIDTH}px`;
+                container.style.height = `${CANVAS_HEIGHT}px`;
                 container.style.transform = `scale(${scale})`;
             }
 

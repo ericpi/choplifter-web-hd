@@ -26,13 +26,12 @@
 * **樣式 (CSS3)**: Vanilla CSS。使用 `Orbitron` Google Font 呈現軍事/科幻風格。
 * **邏輯與渲染 (JavaScript & Canvas API)**: 使用 Canvas 2D 內容進行所有精靈、物理、背景及特效的即時繪製，主循環基於 `requestAnimationFrame`。
 
-### 16:9 Full HD 自適應縮放
-遊戲邏輯基於固定的超高畫質虛擬解析度開發：
-* **Canvas 寬度**: 1920 像素 (`CANVAS_WIDTH = 1920`)
-* **Canvas 高度**: 1080 像素 (`CANVAS_HEIGHT = 1080`)
-
-為了讓遊戲能在任何解析度、螢幕比例的瀏覽器中流暢顯示，遊戲實施了動態視窗重繪與 CSS 縮放：
-* 當視窗縮放時，透過監聽 `resize` 事件，計算當前視窗與 1920x1080 的比例值（取寬度與高度縮放比之最小值），並對 `#game-container` 元素應用 `transform: scale(scaleValue)`，以在保持 16:9 比例的前提下完美填滿螢幕，避免拉伸與變形。
+### 寬螢幕自適應設計 (Dynamic Aspect Ratio Scaling)
+為了讓遊戲在任何螢幕比例的瀏覽器（包括 16:9、16:10 以及 21:9 超寬螢幕）中完美撐滿整個繪圖區域，且消除上下或左右黑邊（Letterbox / Pillarbox），遊戲實施了先進的「動態寬度擴展 + 固定垂直高度」自適應渲染引擎：
+* **Canvas 高度**: 嚴格鎖定在 `1080` 像素 (`CANVAS_HEIGHT = 1080`)，以確保所有垂直重力、地面高度判定（Y 軸 980 處）及著陸碰撞公式 100% 物理一致性，從根本上避免了因視窗高度變化導致的直升機穿地或墜毀 Bug。
+* **Canvas 寬度**: 變更為動態變量 `CANVAS_WIDTH`。當視窗發生 `resize` 時，根據視窗高度計算出縮放比 `scale = window.innerHeight / 1080`，進而推導出完美的物理渲染寬度：`CANVAS_WIDTH = window.innerWidth / scale`。
+* **等比例全螢幕覆蓋**: 對 `#game-container` 元素動態設定寬為 `CANVAS_WIDTH`、高為 `1080px`，並套用 `transform: scale(scale)`，從而使繪圖區域無縫撐滿瀏覽器視區。
+* **自適應 UI 佈局**: HUD overlay 採用 CSS Flexbox 配置，使計分板與剩餘命數能完美且動態地吸附於當前寬螢幕最左側與最右側的外邊框。
 
 ### 視覺效果濾鏡 (CRT Scanlines Overlay)
 利用 CSS 線性漸變（`linear-gradient`）疊加一個覆蓋整個 Canvas 的虛擬半透明層，以 `rgba(0, 0, 0, 0.1)` 繪製間隔為 4 像素的橫向條紋，營造出經典復古 CRT 螢幕的「掃描線（Scanlines）」視覺質感。
@@ -68,7 +67,7 @@ stateDiagram-v2
   * 直升機選項卡（`.chopper-card`）採用高階毛玻璃（Glassmorphism，半透明深色背景結合 `backdrop-filter: blur(8px)`）與懸停青色光暈微動畫。預覽框（`.preview-canvas`）設定為 `rgba(255, 255, 255, 0.25)` 半透明背景，並配有 `rgba(255, 255, 255, 0.3)` 的亮白色邊框，使直升機預覽浮空感更顯著、質感更為精緻。
   * **三架直升機選擇框大小一致**：設定固定寬度為 `400px`，名稱字體大小調降至 `20px`（縮小 10%），內部按鈕寬度 `100%` 自動適配，防止字體突出或換行。
   * **選項卡絕對定位佈局**（精準契合背景底圖美術設計）：
-    * **CH-47 Chinook**：畫面中央向左 5% 位置，且向上移動 2%（`top: 228px; left: 45%; transform: translateX(-50%);`）
+    * **CH-47 Chinook**：畫面左側 13% 位置，且向下移動 4%（`top: 271px; left: 13%; transform: translateX(-50%);`）
     * **AIRWOLF**：向下移動 18% 且向右移動至最右側減 2%（`top: 444px; right: 2%;`）
     * **MD-500 Defender**：中間下方偏右，且向下移動 6%、向左移動 6%（`bottom: 55px; left: 54%; transform: translateX(-50%);`）
     * **選機狀態說明 (`#chopper-preview`)**：放置於畫面上方中央（`top: 150px; left: 50%; transform: translateX(-50%);`）
