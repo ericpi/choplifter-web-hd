@@ -58,10 +58,29 @@ stateDiagram-v2
 ### 畫面切換控制與背景設計
 所有選單與過渡畫面（開始畫面、選機畫面、關卡過渡、勝利、遊戲結束）均作為絕對定位的 HTML `div` 覆蓋並整合於 `#game-container` 之內。為了提供極致流暢的視覺體驗，**各畫面之間的切換均採用「先淡出 (Fade-Out) 再淡入 (Fade-In)」的轉場機制**。系統於遊戲引擎中實作了全域 transition 處理器 `fadeTransition(fromScreen, toScreen, callback)`，配合 CSS 中的 `transition: opacity 0.4s ease-in-out;`，使新舊畫面的交疊極其自然，大幅提升遊戲的精緻感。
 
+#### 圖像預載與進度條機制 (Image Preloading & Progress Bar)
+為了確保所有視覺資產在顯示時皆已完整載入，避免出現圖像突兀彈出或背景空白閃爍的問題，本專案特別實作了高質感的雙階段預載機制：
+
+1. **主畫面系統預載 (Start Screen Preloader)**：
+   * **初始狀態**：主畫面開啟時，背景設為純黑，且隱藏「SELECT CHOPPER」選機按鈕，僅在正中央顯示黃金漸層的 `CHOPLIFTER HD` 標題字樣與一個精緻的半透明毛玻璃外框進度條（`#preload-container`）。
+   * **循序載入工作流**：
+     * 階段一：啟動載入主畫面背景 `images/cover-01.jpg`。在此過程中，進度條指示器配合 `requestAnimationFrame` 與緩動插值（LERP）算法，將進度平滑推進至 **50%**。
+     * 階段二：當 `cover-01.jpg` 載入完畢後，接續啟動載入關卡與過場通用背景 `images/bg-01.jpg`，並將進度指示器平滑推進至 **100%**。
+   * **淡入轉場**：進度達到 100% 後，進度條本身優雅淡出（`opacity: 0`），隨後主畫面的背景容器（`#start-bg`）與選機按鈕（`#start-btn`）在 1.5 秒內平滑地淡入（`opacity: 1`），創造出極致高端的街機開機儀式感。
+
+2. **直升機選擇部署預載閘道 (Sortie Deployment Gated Preload)**：
+   * **預先載入決策**：在選機畫面點擊任何一款直升機的「DEPLOY」按鈕後，系統會鎖定按鈕點擊狀態以防重複點擊，並在卡片按鈕上顯示 `PRELOADING...`、於說明區顯示 `PRELOADING BATTLEFIELD INTEL...` 的高對比霓虹黃提示文字。
+   * **動態機型對照預載**：
+     * 依據玩家選定的直升機類型，動態決定其專屬的遊戲結束背景圖像：
+       * MD-500 Defender (`BLACK_HAWK`) $\rightarrow$ `images/MD500_gameover.jpg`
+       * CH-47 Chinook (`CHINOOK`) $\rightarrow$ `images/CH47_gameover.jpg`
+       * Airwolf (`AIRWOLF`) $\rightarrow$ `images/AIRWOLF_gameover.jpg`
+     * 透過 `Promise.all` 將該直升機專屬的 gameover 背景與過場背景 `images/bg-01.jpg` 進行**並行預載**。
+   * **部署轉場**：兩張關鍵圖片皆載入完成後，系統會自動重置按鈕與選單視覺狀態，並透過全黑色 fade-overlay 進行無縫的淡出淡入轉場，引導玩家進入 Stage 1 戰局。
+
 #### 各畫面背景圖像與覆蓋設定
 * **遊戲起始主畫面 (`#start-screen`)**:
-  * 背景圖像：`images/cover-01.jpg`（完全覆蓋 1920x1080 範圍）
-  * 視覺效果：結合 `linear-gradient` 提供 30% ~ 50% 的暗部漸變遮罩，確保標題字型之可讀性。
+  * 背景圖像：動態容器 `#start-bg` 在預載完成後載入 `images/cover-01.jpg`（完全覆蓋 1920x1080 範圍），並套用 30% ~ 50% 暗部漸變遮罩，確保文字與 UI 的可讀性。
 * **選機畫面 (`#selection-screen`)**:
   * 背景圖像：`images/selection-01.jpg`（完全覆蓋 1920x1080 範圍）
   * 直升機選項卡（`.chopper-card`）採用高階毛玻璃（Glassmorphism，半透明深色背景結合 `backdrop-filter: blur(8px)`）與懸停青色光暈微動畫。預覽框（`.preview-canvas`）設定為 `rgba(255, 255, 255, 0.25)` 半透明背景，並配有 `rgba(255, 255, 255, 0.3)` 的亮白色邊框，使直升機預覽浮空感更顯著、質感更為精緻。

@@ -111,8 +111,73 @@
         }
 
         #start-screen {
-            background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url('images/cover-01.jpg') no-repeat center center;
+            background: #000;
+        }
+
+        #start-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: no-repeat center center;
             background-size: cover;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+            z-index: 1;
+        }
+
+        #start-screen h1 {
+            position: relative;
+            z-index: 2;
+        }
+
+        #start-btn {
+            position: relative;
+            z-index: 2;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out, transform 0.2s, box-shadow 0.2s;
+        }
+
+        #preload-container {
+            position: relative;
+            z-index: 2;
+            width: 400px;
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            transition: opacity 0.5s ease-out;
+        }
+
+        #preload-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            color: #0ff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #preload-bar-outer {
+            width: 100%;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1), inset 0 0 8px rgba(0, 0, 0, 0.8);
+        }
+
+        #preload-bar-inner {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #055, #0ff);
+            box-shadow: 0 0 10px #0ff;
+            border-radius: 6px;
+            transition: width 0.1s ease-out;
         }
 
         #selection-screen {
@@ -304,7 +369,14 @@
         </div>
 
         <div id="start-screen" class="screen">
+            <div id="start-bg"></div>
             <h1>CHOPLIFTER HD</h1>
+            <div id="preload-container">
+                <div id="preload-label">LOADING SYSTEM ASSETS: 0%</div>
+                <div id="preload-bar-outer">
+                    <div id="preload-bar-inner"></div>
+                </div>
+            </div>
             <button class="btn" id="start-btn">SELECT CHOPPER</button>
         </div>
 
@@ -354,6 +426,16 @@
         // --- CONSTANTS & CONFIG ---
         let CANVAS_WIDTH = 1920;
         const CANVAS_HEIGHT = 1080;
+
+        // Image preloading helper function
+        function preloadImage(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null); // Resolve anyway to avoid infinite hang
+                img.src = src;
+            });
+        }
         const GRAVITY = 0.0525; // Reduced by another 30%
         const FRICTION = 0.98;
         const THRUST_POWER = 0.3;
@@ -459,11 +541,64 @@
                     });
                 });
 
+                this.chopperLoading = false;
                 document.querySelectorAll('.select-chopper-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
-                        this.helicopterType = e.target.dataset.type;
-                        this.fadeTransition(this.selectionScreen, null, () => {
-                            this.startLevel(1);
+                        if (this.chopperLoading) return; // Prevent multiple concurrent preloads
+                        this.chopperLoading = true;
+
+                        const clickedBtn = e.currentTarget;
+                        const originalText = clickedBtn.innerText;
+                        
+                        // Apply active loading styling to selection card button
+                        clickedBtn.innerText = 'PRELOADING...';
+                        clickedBtn.style.background = 'linear-gradient(45deg, #555, #222)';
+                        clickedBtn.style.boxShadow = 'none';
+
+                        // Show dynamic preloading status in instructions area
+                        const previewText = document.getElementById('chopper-preview');
+                        if (previewText) {
+                            previewText.innerText = 'PRELOADING BATTLEFIELD INTEL...';
+                            previewText.style.color = '#ff0';
+                            previewText.style.textShadow = '0 0 10px #ff0';
+                        }
+
+                        this.helicopterType = clickedBtn.dataset.type;
+
+                        // Select target gameover graphic to preload based on type
+                        let gameoverImgSrc = '';
+                        if (this.helicopterType === 'AIRWOLF') {
+                            gameoverImgSrc = 'images/AIRWOLF_gameover.jpg';
+                        } else if (this.helicopterType === 'CHINOOK') {
+                            gameoverImgSrc = 'images/CH47_gameover.jpg';
+                        } else if (this.helicopterType === 'BLACK_HAWK') {
+                            gameoverImgSrc = 'images/MD500_gameover.jpg';
+                        }
+
+                        // Preload the transition overlay background and the helicopter's custom gameover graphic
+                        const preloadPromises = [
+                            preloadImage('images/bg-01.jpg'),
+                            preloadImage(gameoverImgSrc)
+                        ];
+
+                        Promise.all(preloadPromises).then(() => {
+                            // Reset selections UI properties after preloading completes for subsequent menu returns
+                            setTimeout(() => {
+                                clickedBtn.innerText = originalText;
+                                clickedBtn.style.background = '';
+                                clickedBtn.style.boxShadow = '';
+                                if (previewText) {
+                                    previewText.innerText = 'SELECT A HELICOPTER TO DEPLOY';
+                                    previewText.style.color = '#0ff';
+                                    previewText.style.textShadow = '0 0 10px #0ff';
+                                }
+                                this.chopperLoading = false;
+                            }, 500);
+
+                            // Proceed with smooth arcade fade-out and deploy mission
+                            this.fadeTransition(this.selectionScreen, null, () => {
+                                this.startLevel(1);
+                            });
                         });
                     });
                 });
@@ -2023,6 +2158,89 @@
         // --- INIT ---
         window.onload = () => {
             const game = new Game();
+
+            // Initialize preloader sequential animation system
+            const preloadContainer = document.getElementById('preload-container');
+            const preloadLabel = document.getElementById('preload-label');
+            const preloadFill = document.getElementById('preload-bar-inner');
+            const startBg = document.getElementById('start-bg');
+            const startBtn = document.getElementById('start-btn');
+
+            let currentProgress = 0;
+            let targetProgress = 0;
+            let loadingPhase = 'cover'; // 'cover', 'bg', 'done'
+
+            // Start preloading the cover image first
+            let coverLoaded = false;
+            let bgLoaded = false;
+
+            preloadImage('images/cover-01.jpg').then(() => {
+                coverLoaded = true;
+            });
+
+            function tickPreload() {
+                if (loadingPhase === 'cover') {
+                    // Smoothly animate towards 50%
+                    if (targetProgress < 49) {
+                        targetProgress += 1.5;
+                    }
+                    if (coverLoaded) {
+                        targetProgress = 50;
+                    }
+                    if (currentProgress >= 50) {
+                        loadingPhase = 'bg';
+                        // Start loading the second image sequentially
+                        preloadImage('images/bg-01.jpg').then(() => {
+                            bgLoaded = true;
+                        });
+                    }
+                } else if (loadingPhase === 'bg') {
+                    // Smoothly animate towards 100%
+                    if (targetProgress < 99) {
+                        targetProgress += 1.5;
+                    }
+                    if (bgLoaded) {
+                        targetProgress = 100;
+                    }
+                    if (currentProgress >= 100) {
+                        loadingPhase = 'done';
+                    }
+                }
+
+                // Move current progress towards target
+                currentProgress += (targetProgress - currentProgress) * 0.15;
+                if (Math.abs(targetProgress - currentProgress) < 0.1) {
+                    currentProgress = targetProgress;
+                }
+
+                const displayPercent = Math.floor(currentProgress);
+                preloadLabel.innerText = `LOADING SYSTEM ASSETS: ${displayPercent}%`;
+                preloadFill.style.width = `${displayPercent}%`;
+
+                if (loadingPhase !== 'done') {
+                    requestAnimationFrame(tickPreload);
+                } else {
+                    // Done loading! Fade in the screen
+                    setTimeout(() => {
+                        // Fade out preloader
+                        preloadContainer.style.opacity = '0';
+                        setTimeout(() => {
+                            preloadContainer.classList.add('hidden');
+                            
+                            // Set cover image & Fade in start background
+                            startBg.style.backgroundImage = "linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url('images/cover-01.jpg')";
+                            startBg.style.opacity = '1';
+
+                            // Fade in start button
+                            startBtn.style.opacity = '1';
+                            startBtn.style.pointerEvents = 'auto';
+                        }, 500);
+                    }, 300);
+                }
+            }
+
+            // Start the preloading ticks
+            requestAnimationFrame(tickPreload);
         };
 
     </script>
