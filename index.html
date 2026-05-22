@@ -5,12 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Choplifter HD Web - Classic Helicopter Rescue Game in Browser</title>
-    <meta name="description" content="Play Choplifter HD directly in your browser! Command 3 iconic choppers: Airwolf, CH-47 Chinook, and MD-500 Defender. Blast enemy lines and rescue hostages now.">
-    <meta name="keywords" content="Choplifter HD, Choplifter web game, helicopter rescue game, Airwolf game, CH-47 Chinook, MD-500 Defender, retro arcade game, browser shoot em up, free online game">
+    <meta name="description"
+        content="Play Choplifter HD directly in your browser! Command 3 iconic choppers: Airwolf, CH-47 Chinook, and MD-500 Defender. Blast enemy lines and rescue hostages now.">
+    <meta name="keywords"
+        content="Choplifter HD, Choplifter web game, helicopter rescue game, Airwolf game, CH-47 Chinook, MD-500 Defender, retro arcade game, browser shoot em up, free online game">
     <!-- Open Graph tags for Facebook / Social Media sharing -->
     <meta property="og:title" content="The Legendary &quot;Choplifter&quot; is Back! Play Right in Your Browser ➔">
-    <meta property="og:description" content="Classic rescue gameplay meets 3 iconic choppers: Airwolf, CH-47 Chinook, and MD-500 Defender! Blast through enemy lines and save the hostages in Choplifter HD. Which bird are you piloting today?">
-    <meta property="og:image" content="images/og_image.jpe">
+    <meta property="og:description"
+        content="Classic rescue gameplay meets 3 iconic choppers: Airwolf, CH-47 Chinook, and MD-500 Defender! Blast through enemy lines and save the hostages in Choplifter HD. Which bird are you piloting today?">
+    <meta property="og:image" content="images/og_image.jpg">
     <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -589,7 +592,7 @@
 
                         const clickedBtn = e.currentTarget;
                         const originalText = clickedBtn.innerText;
-                        
+
                         // Apply active loading styling to selection card button
                         clickedBtn.innerText = 'PRELOADING...';
                         clickedBtn.style.background = 'linear-gradient(45deg, #555, #222)';
@@ -2266,7 +2269,7 @@
                         preloadContainer.style.opacity = '0';
                         setTimeout(() => {
                             preloadContainer.classList.add('hidden');
-                            
+
                             // Set cover image & Fade in start background
                             startBg.style.backgroundImage = "linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url('images/cover-01.jpg')";
                             startBg.style.opacity = '1';
