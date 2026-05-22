@@ -2,6 +2,8 @@
 
 ![landing_image](images/og_image-v1.jpg)
 
+[Click here](https://ericpi.github.io/choplifter-web-hd/) to play directly in your browser.
+
 An advanced web-based reimagining of the all-time arcade classic **Choplifter**. This project modernizes the beloved retro side-scrolling shoot-'em-up, delivering intense helicopter rescue operations directly inside modern web browsers with high-definition visual layouts and highly responsive flight physics.
 
 Take command of three legendary rotorcraft, each possessing entirely unique flight characteristics, tactical advantages, and customized loadouts, to infiltrate hostile territory, neutralize anti-air defenses, and safely extract hostages.
@@ -41,6 +43,7 @@ This project is engineered for optimal performance on web platforms utilizing mo
 
 ## 📦 Getting Started & Installation
 
+[Click here](https://ericpi.github.io/choplifter-web-hd/) to play directly in your browser.
 To run this project locally or deploy it to your own web hosting platform, follow these simple setup steps.
 
 ### Prerequisites
