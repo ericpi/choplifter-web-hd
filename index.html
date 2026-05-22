@@ -485,26 +485,30 @@
                         if (p.x > t.x - t.width / 2 && p.x < t.x + t.width / 2 &&
                             p.y > t.y - t.height / 2 && p.y < t.y + t.height / 2) {
 
-                            p.markedForDeletion = true;
+                            if (p.isPlayer && p.type === 'BOMB') {
+                                p.explode();
+                            } else {
+                                p.markedForDeletion = true;
 
-                            // Hit effect
-                            this.spawnExplosion(p.x, p.y, 'SMALL');
+                                // Hit effect
+                                this.spawnExplosion(p.x, p.y, 'SMALL');
 
-                            if (t instanceof Tank) {
-                                t.markedForDeletion = true;
-                                this.spawnExplosion(t.x, t.y, 'BIG');
-                                this.score += 100;
-                                this.updateUI();
-                            } else if (t instanceof Helicopter) {
-                                t.markedForDeletion = true;
-                                this.spawnExplosion(t.x, t.y, 'BIG');
-                                this.lives--;
-                                this.updateUI();
-                                if (this.lives <= 0) {
-                                    this.gameOver();
-                                } else {
-                                    // Respawn
-                                    setTimeout(() => this.respawnPlayer(), 2000);
+                                if (t instanceof Tank) {
+                                    t.markedForDeletion = true;
+                                    this.spawnExplosion(t.x, t.y, 'BIG');
+                                    this.score += 100;
+                                    this.updateUI();
+                                } else if (t instanceof Helicopter) {
+                                    t.markedForDeletion = true;
+                                    this.spawnExplosion(t.x, t.y, 'BIG');
+                                    this.lives--;
+                                    this.updateUI();
+                                    if (this.lives <= 0) {
+                                        this.gameOver();
+                                    } else {
+                                        // Respawn
+                                        setTimeout(() => this.respawnPlayer(), 2000);
+                                    }
                                 }
                             }
                         }
@@ -804,6 +808,7 @@
                 this.maxPassengers = 16;
                 this.lastShot = 0;
                 this.muzzleFlashTimer = 0;
+                this.shootCooldown = 200; // Baseline default
 
                 // Physics Modifiers
                 this.gravityMod = 1.0;
@@ -814,18 +819,21 @@
                 if (type === 'BLACK_HAWK') {
                     this.maxPassengers = 3;
                     this.speedMod = 1.0;
+                    this.shootCooldown = 182; // 110% density (200 / 1.10)
                 } else if (type === 'CHINOOK') {
                     this.maxPassengers = 8;
                     // Descent rate reduced by 20% (Gravity reduced)
                     this.gravityMod = 0.8;
                     // Horizontal speed reduced by 25% (speedMod = 0.75)
                     this.speedMod = 0.75;
+                    this.shootCooldown = 300; // 66% density (200 / 0.66)
                 } else if (type === 'AIRWOLF') {
                     this.maxPassengers = 2;
                     // Descent rate increased by 10% (Gravity increased)
                     this.gravityMod = 1.1;
                     // Horizontal speed increased
                     this.speedMod = 1.41;
+                    this.shootCooldown = 211; // 95% density (200 / 0.95)
                 }
             }
 
@@ -903,7 +911,7 @@
                 if (this.muzzleFlashTimer > 0) this.muzzleFlashTimer -= dt;
 
                 // Shooting
-                if (input.isDown('Space') && this.game.lastTime - this.lastShot > 200) {
+                if (input.isDown('Space') && this.game.lastTime - this.lastShot > this.shootCooldown) {
                     this.shoot();
                     this.lastShot = this.game.lastTime;
                 }
@@ -928,12 +936,33 @@
             }
 
             shoot() {
+                const type = this.game.helicopterType || 'BLACK_HAWK';
                 const offX = this.facingRight ? 40 : -40;
-                const angle = this.facingRight ? 0.1 : Math.PI - 0.1;
-                const p = new Projectile(this.game, this.x + offX, this.y + 10, angle, true);
-                p.vx += this.vx;
-                this.game.entities.push(p);
-                this.muzzleFlashTimer = 0.05;
+                const baseAngle = this.facingRight ? 0.1 : Math.PI - 0.1;
+
+                if (type === 'AIRWOLF') {
+                    // 3-way spread missiles, 4.5 degrees apart (0.0785 rad)
+                    const angles = [baseAngle - 0.0785, baseAngle, baseAngle + 0.0785];
+                    angles.forEach(angle => {
+                        const p = new Projectile(this.game, this.x + offX, this.y + 10, angle, true, 'MISSILE');
+                        p.vx += this.vx;
+                        this.game.entities.push(p);
+                    });
+                    this.muzzleFlashTimer = 0.05;
+                } else if (type === 'CHINOOK') {
+                    // Falling bomb with helicopter's horizontal speed inertia (120% effect) and slight downward push
+                    const p = new Projectile(this.game, this.x + offX, this.y + 15, baseAngle, true, 'BOMB');
+                    p.vx = this.vx * 1.2;
+                    p.vy = this.vy + 3;
+                    this.game.entities.push(p);
+                    this.muzzleFlashTimer = 0.05;
+                } else {
+                    // MD-500 (BLACK_HAWK) - standard bullet tracer
+                    const p = new Projectile(this.game, this.x + offX, this.y + 10, baseAngle, true, 'BULLET');
+                    p.vx += this.vx;
+                    this.game.entities.push(p);
+                    this.muzzleFlashTimer = 0.05;
+                }
             }
 
             draw(ctx) {
@@ -964,7 +993,8 @@
                     // Windows
                     ctx.fillStyle = '#8ce';
                     ctx.beginPath();
-                    ctx.arc(60, 0, 8, 0, Math.PI * 2);
+                    const winX = this.facingRight ? 60 : -60;
+                    ctx.arc(winX, 0, 8, 0, Math.PI * 2);
                     ctx.fill();
 
                     // Rotors (Front and Back) - 35% smaller total (was 15%, now another 20%)
@@ -1358,37 +1388,235 @@
         }
 
         class Projectile extends Entity {
-            constructor(game, x, y, angle, isPlayer) {
+            constructor(game, x, y, angle, isPlayer, type = 'BULLET') {
                 super(game, x, y);
-                this.vx = Math.cos(angle) * 15;
-                this.vy = Math.sin(angle) * 15;
                 this.isPlayer = isPlayer;
+                this.type = type;
                 this.life = 2.0;
-                this.width = 5;
-                this.height = 5;
+                this.hasExploded = false;
+
+                if (!isPlayer) {
+                    // Enemy tank projectile
+                    this.vx = Math.cos(angle) * 15;
+                    this.vy = Math.sin(angle) * 15;
+                    this.width = 8;
+                    this.height = 8;
+                } else if (type === 'BOMB') {
+                    // Bomb velocity overridden in shoot(), establish default dimensions & longer life
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.width = 24;
+                    this.height = 12;
+                    this.life = 5.0; 
+                } else if (type === 'MISSILE') {
+                    // Missiles travel fast in shot direction
+                    this.vx = Math.cos(angle) * 18;
+                    this.vy = Math.sin(angle) * 18;
+                    this.width = 18;
+                    this.height = 8;
+                    this.life = 3.0;
+                } else {
+                    // BULLET
+                    this.vx = Math.cos(angle) * 15;
+                    this.vy = Math.sin(angle) * 15;
+                    this.width = 10;
+                    this.height = 4;
+                }
             }
 
             update(dt) {
                 this.life -= dt;
-                if (this.life <= 0) this.markedForDeletion = true;
+                if (this.life <= 0) {
+                    if (this.type === 'BOMB') {
+                        this.explode();
+                    } else {
+                        this.markedForDeletion = true;
+                    }
+                }
+
+                if (this.isPlayer && this.type === 'BOMB') {
+                    // Gravity acceleration for bomb (95% of 0.25)
+                    this.vy += 0.2375;
+                }
 
                 this.x += this.vx;
                 this.y += this.vy;
 
                 if (this.y > CANVAS_HEIGHT - 100) {
-                    this.markedForDeletion = true;
+                    if (this.type === 'BOMB') {
+                        this.explode();
+                    } else {
+                        this.markedForDeletion = true;
+                    }
                 }
             }
 
+            explode() {
+                if (this.hasExploded) return;
+                this.hasExploded = true;
+                this.markedForDeletion = true;
+
+                // Visual explosion effect
+                this.game.spawnExplosion(this.x, this.y, 'BIG');
+
+                // Custom extra fire & smoke shockwave particles
+                for (let i = 0; i < 20; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + Math.random() * 4;
+                    const p = new Particle(this.game, this.x, this.y, '#f50', speed, 0.8);
+                    this.game.particles.push(p);
+                }
+
+                // Splash damage (extends 300% outwards from bomb volume: width = 24. Outward 300% = 72px. Total radius = 12 + 72 = 84px)
+                const splashRadius = this.width * 3.5;
+                this.game.entities.forEach(t => {
+                    if (t instanceof Tank && !t.markedForDeletion) {
+                        const dx = t.x - this.x;
+                        const dy = t.y - this.y;
+                        const dist = Math.hypot(dx, dy);
+                        if (dist <= splashRadius) {
+                            t.markedForDeletion = true;
+                            this.game.spawnExplosion(t.x, t.y, 'BIG');
+                            this.game.score += 100;
+                            this.game.floatingTexts.push(new FloatingText("SPLASH!", t.x, t.y - 20, '#ff0'));
+                        }
+                    }
+                });
+                this.game.updateUI();
+            }
+
             draw(ctx) {
+                if (!this.isPlayer) {
+                    // Enemy projectiles: standard orange circle
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.fillStyle = '#f80';
+                    ctx.shadowColor = '#f00';
+                    ctx.shadowBlur = 5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                    return;
+                }
+
+                if (this.type === 'BOMB') {
+                    this.drawBomb(ctx);
+                } else if (this.type === 'MISSILE') {
+                    this.drawMissile(ctx);
+                } else {
+                    this.drawBullet(ctx);
+                }
+            }
+
+            drawBomb(ctx) {
                 ctx.save();
                 ctx.translate(this.x, this.y);
-                ctx.fillStyle = this.isPlayer ? '#ff0' : '#f80';
-                ctx.shadowColor = this.isPlayer ? '#ff0' : '#f00';
-                ctx.shadowBlur = 5;
+                const angle = Math.atan2(this.vy, this.vx || 0.001);
+                ctx.rotate(angle);
+
+                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 4;
+
+                // Tail fins
+                ctx.fillStyle = '#2f3d2f';
+                ctx.fillRect(-12, -6, 4, 12);
                 ctx.beginPath();
-                ctx.arc(0, 0, 3, 0, Math.PI * 2);
+                ctx.moveTo(-12, -6);
+                ctx.lineTo(-16, -9);
+                ctx.lineTo(-16, -6);
                 ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-12, 6);
+                ctx.lineTo(-16, 9);
+                ctx.lineTo(-16, 6);
+                ctx.fill();
+
+                // Tail connector
+                ctx.fillRect(-8, -2, 6, 4);
+
+                // Olive green oval body
+                ctx.fillStyle = '#4c5e4c';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 10, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Red nose cone
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.ellipse(8, 0, 3, 4, 0, -Math.PI / 2, Math.PI / 2);
+                ctx.fill();
+
+                // Highlight gloss
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(-2, -2, 3, Math.PI, Math.PI * 1.5);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            drawMissile(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                const angle = Math.atan2(this.vy, this.vx);
+                ctx.rotate(angle);
+
+                ctx.shadowColor = 'rgba(255, 100, 0, 0.5)';
+                ctx.shadowBlur = 4;
+
+                // Light grey sleek body (size: 18 x 6)
+                ctx.fillStyle = '#d1d5db';
+                ctx.fillRect(-9, -3, 15, 6);
+
+                // Red nose cone
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.moveTo(6, -3);
+                ctx.lineTo(10, 0);
+                ctx.lineTo(6, 3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Dark grey fins
+                ctx.fillStyle = '#4b5563';
+                ctx.beginPath();
+                ctx.moveTo(-9, -3);
+                ctx.lineTo(-12, -5);
+                ctx.lineTo(-9, -5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-9, 3);
+                ctx.lineTo(-12, 5);
+                ctx.lineTo(-9, 5);
+                ctx.closePath();
+                ctx.fill();
+
+                // Rocket booster flame
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath();
+                ctx.moveTo(-9, -2);
+                ctx.lineTo(-15 - Math.random() * 5, 0);
+                ctx.lineTo(-9, 2);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            drawBullet(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                const angle = Math.atan2(this.vy, this.vx);
+                ctx.rotate(angle);
+
+                ctx.fillStyle = '#ff0';
+                ctx.shadowColor = '#ff0';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(-5, -2, 10, 4); // Sleek gold tracer bullet
                 ctx.restore();
             }
         }
