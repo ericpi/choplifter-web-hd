@@ -447,7 +447,8 @@
                 document.getElementById('lives-display').innerText = `LIVES: ${Math.max(0, this.lives - 1)}`;
                 document.getElementById('hostages-display').innerText = `HOSTAGES: ${this.hostagesRescued} / ${this.hostagesTarget}`;
                 const onboard = this.player ? this.player.passengers : 0;
-                document.getElementById('onboard-display').innerText = `ONBOARD: ${onboard}`;
+                const maxPass = this.player ? this.player.maxPassengers : 16;
+                document.getElementById('onboard-display').innerText = `ONBOARD: ${onboard} / ${maxPass}`;
             }
 
             update(dt) {
@@ -810,16 +811,21 @@
                 this.speedMod = 1.0;
 
                 const type = this.game.helicopterType || 'BLACK_HAWK';
-                if (type === 'CHINOOK') {
+                if (type === 'BLACK_HAWK') {
+                    this.maxPassengers = 3;
+                    this.speedMod = 1.0;
+                } else if (type === 'CHINOOK') {
+                    this.maxPassengers = 8;
                     // Descent rate reduced by 20% (Gravity reduced)
                     this.gravityMod = 0.8;
-                    // Horizontal speed reduced by 10%
-                    this.speedMod = 0.9;
+                    // Horizontal speed reduced by 25% (speedMod = 0.75)
+                    this.speedMod = 0.75;
                 } else if (type === 'AIRWOLF') {
+                    this.maxPassengers = 2;
                     // Descent rate increased by 10% (Gravity increased)
                     this.gravityMod = 1.1;
-                    // Horizontal speed reduced by 25%
-                    this.speedMod = 0.75;
+                    // Horizontal speed increased
+                    this.speedMod = 1.41;
                 }
             }
 
@@ -1170,8 +1176,10 @@
                 } else if (this.state === 'WAVING') {
                     if (!playerLanded) this.state = 'WAITING';
                     if (distToPlayer < 50 && playerLanded) {
-                        this.state = 'BOARDING';
-                        this.timer = 0;
+                        if (this.game.player.passengers < this.game.player.maxPassengers) {
+                            this.state = 'BOARDING';
+                            this.timer = 0;
+                        }
                     } else if (distToPlayer > 50 && playerLanded) {
                         this.state = 'FOLLOWING';
                     }
@@ -1188,8 +1196,10 @@
                         }
 
                         if (distToPlayer < 30) {
-                            this.state = 'BOARDING';
-                            this.timer = 0;
+                            if (this.game.player.passengers < this.game.player.maxPassengers) {
+                                this.state = 'BOARDING';
+                                this.timer = 0;
+                            }
                         }
                     }
                 } else if (this.state === 'BOARDING') {
