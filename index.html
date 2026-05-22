@@ -132,19 +132,28 @@
             z-index: 2;
         }
 
-        #start-btn {
-            position: relative;
-            z-index: 2;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 1.5s ease-in-out, transform 0.2s, box-shadow 0.2s;
-        }
-
-        #preload-container {
+        .start-interactive-area {
             position: relative;
             z-index: 2;
             width: 400px;
+            height: 100px;
             margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #start-btn {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out, transform 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+        }
+
+        #preload-container {
+            position: absolute;
+            width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -371,13 +380,15 @@
         <div id="start-screen" class="screen">
             <div id="start-bg"></div>
             <h1>CHOPLIFTER HD</h1>
-            <div id="preload-container">
-                <div id="preload-label">LOADING SYSTEM ASSETS: 0%</div>
-                <div id="preload-bar-outer">
-                    <div id="preload-bar-inner"></div>
+            <div class="start-interactive-area">
+                <div id="preload-container">
+                    <div id="preload-label">LOADING SYSTEM ASSETS: 0%</div>
+                    <div id="preload-bar-outer">
+                        <div id="preload-bar-inner"></div>
+                    </div>
                 </div>
+                <button class="btn" id="start-btn">SELECT CHOPPER</button>
             </div>
-            <button class="btn" id="start-btn">SELECT CHOPPER</button>
         </div>
 
         <div id="selection-screen" class="screen hidden">
