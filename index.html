@@ -201,6 +201,26 @@
             text-align: center;
         }
 
+        #mobile-keyboard-notice {
+            position: absolute;
+            top: 110%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1.5s ease-in-out;
+            white-space: nowrap;
+            color: #ffaa00;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 170, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px dashed #ffaa00;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
         #preload-container {
             position: absolute;
             top: 50%;
@@ -214,7 +234,7 @@
             transition: opacity 0.5s ease-out;
         }
 
-        #preload-label {
+        #preload-label, .preload-label {
             font-family: 'Orbitron', sans-serif;
             font-size: 16px;
             color: #0ff;
@@ -223,7 +243,7 @@
             text-transform: uppercase;
         }
 
-        #preload-bar-outer {
+        #preload-bar-outer, .preload-bar-outer {
             width: 100%;
             height: 16px;
             background: rgba(255, 255, 255, 0.05);
@@ -233,13 +253,34 @@
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.1), inset 0 0 8px rgba(0, 0, 0, 0.8);
         }
 
-        #preload-bar-inner {
+        #preload-bar-inner, .preload-bar-inner {
             width: 0%;
             height: 100%;
             background: linear-gradient(90deg, #055, #0ff);
             box-shadow: 0 0 10px #0ff;
             border-radius: 6px;
             transition: width 0.1s ease-out;
+        }
+
+        /* Dedicated Selection Preloader Dialog overlay */
+        #selection-preload-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 450px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            z-index: 100;
+            transition: opacity 0.5s ease-out;
+            backdrop-filter: blur(8px);
         }
 
         #selection-screen {
@@ -297,6 +338,7 @@
             backdrop-filter: blur(8px);
             width: 400px;
             box-sizing: border-box;
+            cursor: pointer;
         }
 
         .chopper-card .select-chopper-btn {
@@ -442,12 +484,21 @@
                 </div>
                 <button class="btn" id="start-btn">START GAME</button>
                 <div id="mobile-unsupported-message">Mobile Devices are temporarily not supported</div>
+                <div id="mobile-keyboard-notice">Currently, only keyboard controls are supported</div>
             </div>
         </div>
 
         <div id="selection-screen" class="screen hidden">
             <h1>SELECT CHOPPER</h1>
             <div id="chopper-preview">SELECT A HELICOPTER TO DEPLOY</div>
+
+            <!-- Selection Preloader Dialog -->
+            <div id="selection-preload-container" class="hidden">
+                <div class="preload-label" id="selection-preload-label">PREPARING BATTLEFIELD INTEL: 0%</div>
+                <div class="preload-bar-outer">
+                    <div class="preload-bar-inner" id="selection-preload-bar-inner"></div>
+                </div>
+            </div>
 
             <!-- CH-47 Chinook: Top-left -->
             <div class="chopper-card card-chinook">
@@ -508,14 +559,16 @@
         const MAX_SPEED = 12;
 
         class FloatingText {
-            constructor(text, x, y, color) {
+            constructor(text, x, y, color, life = 1.5, isScreenSpace = false, game = null) {
                 this.text = text;
                 this.x = x;
                 this.y = y;
                 this.color = color;
-                this.life = 1.5; // seconds
+                this.life = life; // seconds
                 this.vy = -1;
                 this.markedForDeletion = false;
+                this.isScreenSpace = isScreenSpace;
+                this.game = game;
             }
 
             update(dt) {
@@ -528,10 +581,15 @@
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, this.life);
                 ctx.fillStyle = this.color;
-                ctx.font = '20px Orbitron';
+                ctx.font = '28px Orbitron';
+                ctx.textAlign = 'center';
                 ctx.shadowColor = '#000';
                 ctx.shadowBlur = 4;
-                ctx.fillText(this.text, this.x, this.y);
+                if (this.isScreenSpace && this.game) {
+                    ctx.fillText(this.text, this.x - this.game.camX, this.y);
+                } else {
+                    ctx.fillText(this.text, this.x, this.y);
+                }
                 ctx.restore();
             }
         }
@@ -606,6 +664,16 @@
                     });
                 });
 
+                // Interactive Chopper Card delegation
+                document.querySelectorAll('.chopper-card').forEach(card => {
+                    card.addEventListener('click', (e) => {
+                        // Prevent triggering twice if the click was directly on the button
+                        if (e.target.tagName === 'BUTTON') return;
+                        const btn = card.querySelector('.select-chopper-btn');
+                        if (btn) btn.click();
+                    });
+                });
+
                 this.chopperLoading = false;
                 document.querySelectorAll('.select-chopper-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -613,21 +681,6 @@
                         this.chopperLoading = true;
 
                         const clickedBtn = e.currentTarget;
-                        const originalText = clickedBtn.innerText;
-
-                        // Apply active loading styling to selection card button
-                        clickedBtn.innerText = 'PRELOADING...';
-                        clickedBtn.style.background = 'linear-gradient(45deg, #555, #222)';
-                        clickedBtn.style.boxShadow = 'none';
-
-                        // Show dynamic preloading status in instructions area
-                        const previewText = document.getElementById('chopper-preview');
-                        if (previewText) {
-                            previewText.innerText = 'PRELOADING BATTLEFIELD INTEL...';
-                            previewText.style.color = '#ff0';
-                            previewText.style.textShadow = '0 0 10px #ff0';
-                        }
-
                         this.helicopterType = clickedBtn.dataset.type;
 
                         // Select target gameover graphic to preload based on type
@@ -640,44 +693,95 @@
                             gameoverImgSrc = 'images/MD500_gameover.jpg';
                         }
 
-                        // Preload the transition overlay background and the helicopter's custom gameover graphic
-                        const preloadPromises = [
-                            preloadImage('images/bg-01.jpg'),
-                            preloadImage(gameoverImgSrc)
-                        ];
+                        // Trigger Selection Preloader progress ticks
+                        const selectionPreload = document.getElementById('selection-preload-container');
+                        const selectionPreloadLabel = document.getElementById('selection-preload-label');
+                        const selectionPreloadFill = document.getElementById('selection-preload-bar-inner');
+                        
+                        selectionPreload.classList.remove('hidden');
+                        selectionPreload.style.opacity = '1';
+                        selectionPreloadFill.style.width = '0%';
 
-                        Promise.all(preloadPromises).then(() => {
-                            // Reset selections UI properties after preloading completes for subsequent menu returns
-                            setTimeout(() => {
-                                clickedBtn.innerText = originalText;
-                                clickedBtn.style.background = '';
-                                clickedBtn.style.boxShadow = '';
-                                if (previewText) {
-                                    previewText.innerText = 'SELECT A HELICOPTER TO DEPLOY';
-                                    previewText.style.color = '#0ff';
-                                    previewText.style.textShadow = '0 0 10px #0ff';
-                                }
-                                this.chopperLoading = false;
-                            }, 500);
+                        let selectProgress = 0;
+                        let selectTargetProgress = 0;
+                        let selectPhase = 'bg'; // 'bg', 'gameover', 'done'
+                        let bgPreloadDone = false;
+                        let gameoverPreloadDone = false;
 
-                            // Proceed with smooth arcade fade-out and deploy mission
-                            this.fadeTransition(this.selectionScreen, null, () => {
-                                this.startLevel(1);
-                            });
+                        // Preload bg-01
+                        preloadImage('images/bg-01.jpg').then(() => {
+                            bgPreloadDone = true;
                         });
+
+                        const tickSelectionPreload = () => {
+                            if (selectPhase === 'bg') {
+                                if (selectTargetProgress < 49) {
+                                    selectTargetProgress += 2.0;
+                                }
+                                if (bgPreloadDone) {
+                                    selectTargetProgress = 50;
+                                }
+                                if (selectProgress >= 50) {
+                                    selectPhase = 'gameover';
+                                    preloadImage(gameoverImgSrc).then(() => {
+                                        gameoverPreloadDone = true;
+                                    });
+                                }
+                            } else if (selectPhase === 'gameover') {
+                                if (selectTargetProgress < 99) {
+                                    selectTargetProgress += 2.0;
+                                }
+                                if (gameoverPreloadDone) {
+                                    selectTargetProgress = 100;
+                                }
+                                if (selectProgress >= 100) {
+                                    selectPhase = 'done';
+                                }
+                            }
+
+                            selectProgress += (selectTargetProgress - selectProgress) * 0.15;
+                            if (Math.abs(selectTargetProgress - selectProgress) < 0.1) {
+                                selectProgress = selectTargetProgress;
+                            }
+
+                            const displayPercent = Math.floor(selectProgress);
+                            selectionPreloadLabel.innerText = `PREPARING BATTLEFIELD INTEL: ${displayPercent}%`;
+                            selectionPreloadFill.style.width = `${displayPercent}%`;
+
+                            if (selectPhase !== 'done') {
+                                requestAnimationFrame(tickSelectionPreload);
+                            } else {
+                                // Done preloading! Transition to deployment
+                                setTimeout(() => {
+                                    selectionPreload.style.opacity = '0';
+                                    setTimeout(() => {
+                                        selectionPreload.classList.add('hidden');
+                                        this.chopperLoading = false;
+
+                                        // Proceed with smooth arcade fade-out and deploy mission
+                                        this.fadeTransition(this.selectionScreen, null, () => {
+                                            this.startLevel(1);
+                                        });
+                                    }, 500);
+                                }, 300);
+                            }
+                        };
+
+                        // Invoke ticking loop
+                        requestAnimationFrame(tickSelectionPreload);
                     });
                 });
 
-                // Return to selection screen on game over / victory restart
-                const returnToSelection = () => {
+                // Return to start screen on game over / victory restart
+                const returnToStart = () => {
                     const activeScreen = this.state === 'GAMEOVER' ? this.gameOverScreen : this.victoryScreen;
-                    this.fadeTransition(activeScreen, this.selectionScreen, () => {
+                    this.fadeTransition(activeScreen, this.startScreen, () => {
                         this.state = 'MENU';
                     });
                 };
 
-                this.restartBtn.addEventListener('click', returnToSelection);
-                this.vicRestartBtn.addEventListener('click', returnToSelection);
+                this.restartBtn.addEventListener('click', returnToStart);
+                this.vicRestartBtn.addEventListener('click', returnToStart);
 
                 // Resize handler
                 window.addEventListener('resize', () => this.handleResize());
@@ -767,6 +871,7 @@
                 this.hostagesRescued = 0;
                 this.hostagesTarget = 6; // Fixed goal per level
                 this.hostageSpawnTimer = 0;
+                this.enemySpawnTimer = 0;
 
                 // Add Player
                 this.player = new Helicopter(this);
@@ -843,14 +948,30 @@
                 if (this.state !== 'PLAYING') return;
 
                 // Hostage Spawn Logic
-                this.hostageSpawnTimer += dt;
+                const hostageCount = this.entities.filter(e => e instanceof Hostage && !e.markedForDeletion).length;
+                const spawnSpeedMultiplier = (hostageCount === 0) ? 1.5 : 1.0;
+                this.hostageSpawnTimer += dt * spawnSpeedMultiplier;
+
                 if (this.hostageSpawnTimer >= 60) {
                     this.hostageSpawnTimer = 0;
                     const hx = 2000 + Math.random() * 16000;
                     this.entities.push(new Hostage(this, hx));
                     // Do NOT increase hostagesTarget
                     this.updateUI();
-                    this.floatingTexts.push(new FloatingText("HOSTAGES DETECTED!", CANVAS_WIDTH / 2, 200, '#ff0'));
+                    this.floatingTexts.push(new FloatingText("HOSTAGES DETECTED!", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '#ff0', 1.95, true, this));
+                }
+
+                // Enemy Respawn Logic (Stage 5+)
+                if (this.stage >= 5) {
+                    const enemySpawnRate = 0.5 + 0.07 * (this.stage - 5);
+                    this.enemySpawnTimer += dt * enemySpawnRate;
+
+                    if (this.enemySpawnTimer >= 60) {
+                        this.enemySpawnTimer = 0;
+                        const tx = 1500 + Math.random() * 17000;
+                        this.entities.push(new Tank(this, tx));
+                        this.floatingTexts.push(new FloatingText("ENEMY REINFORCEMENTS DETECTED!", CANVAS_WIDTH / 2, 250, '#ff4444'));
+                    }
                 }
 
                 // Update Entities
@@ -896,6 +1017,7 @@
                                     t.markedForDeletion = true;
                                     this.spawnExplosion(t.x, t.y, 'BIG');
                                     this.lives--;
+                                    t.passengers = 0; // Confirm onboard is reset to zero
                                     this.updateUI();
                                     if (this.lives <= 0) {
                                         this.gameOver();
@@ -930,8 +1052,10 @@
             respawnPlayer() {
                 if (this.lives > 0) {
                     this.player = new Helicopter(this);
+                    this.player.passengers = 0; // Re-verify onboard is reset to zero
                     this.player.lastShot = 0;
                     this.entities.push(this.player);
+                    this.updateUI();
                 }
             }
 
@@ -1404,7 +1528,8 @@
                     this.muzzleFlashTimer = 0.05;
                 } else {
                     // MD-500 (BLACK_HAWK) - standard bullet tracer
-                    const p = new Projectile(this.game, this.x + offX, this.y + 10, baseAngle, true, 'BULLET');
+                    const md500OffX = this.facingRight ? -20 : 20;
+                    const p = new Projectile(this.game, this.x + md500OffX, this.y + 10, baseAngle, true, 'BULLET');
                     p.vx += this.vx;
                     this.game.entities.push(p);
                     this.muzzleFlashTimer = 0.05;
@@ -1665,7 +1790,7 @@
                         mx = 0;
                         my = 20;
                     } else {
-                        mx = this.facingRight ? 40 : -40;
+                        mx = this.facingRight ? -20 : 20;
                         my = 10;
                     }
                     ctx.arc(mx, my, 10 + Math.random() * 10, 0, Math.PI * 2);
@@ -2309,6 +2434,12 @@
                                 // Fade in start button
                                 startBtn.style.opacity = '1';
                                 startBtn.style.pointerEvents = 'auto';
+                                
+                                // If mobile or tablet, display warning that only keyboard controls are supported
+                                if (isMobileOrTablet) {
+                                    const keyboardNotice = document.getElementById('mobile-keyboard-notice');
+                                    keyboardNotice.style.opacity = '1';
+                                }
                             }
                         }, 500);
                     }, 300);
