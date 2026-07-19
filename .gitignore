@@ -1,2 +1,7 @@
 # Game PRD Specification Document
 spec-prd.md
+
+# Operating System & Editor Files
+.DS_Store
+*.swp
+*~
