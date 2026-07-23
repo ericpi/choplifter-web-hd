@@ -75,6 +75,7 @@
         .hud-top {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             font-size: 24px;
             text-shadow: 0 0 10px #0ff;
         }
@@ -82,8 +83,48 @@
         .hud-bottom {
             display: flex;
             justify-content: center;
+            align-items: center;
             font-size: 18px;
-            opacity: 0.8;
+            opacity: 0.9;
+        }
+
+        .hud-icon-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+        .hud-chopper-icon {
+            width: 36px;
+            height: 20px;
+            display: inline-block;
+            filter: drop-shadow(0 0 5px #00ffff);
+            transition: all 0.3s ease;
+        }
+
+        .hud-hostage-icon {
+            width: 14px;
+            height: 22px;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .hud-badge-icon {
+            width: 26px;
+            height: 24px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .hud-badge-divider {
+            width: 2px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.25);
+            margin: 0 8px;
+            display: inline-block;
+            vertical-align: middle;
         }
 
         .hud-controls-hint {
@@ -463,11 +504,11 @@
             <div class="hud-top">
                 <div id="score-display">SCORE: 0</div>
                 <div id="stage-display">STAGE: 1</div>
-                <div id="lives-display">LIVES: 3</div>
+                <div id="lives-display"></div>
             </div>
             <div class="hud-bottom">
-                <div id="hostages-display">HOSTAGES: 0 / 6</div>
-                <div id="onboard-display" style="margin-left: 20px; color: #0f0;">ONBOARD: 0</div>
+                <div id="hostages-display" style="display: flex; align-items: center;"></div>
+                <div id="onboard-display" style="margin-left: 40px; color: #0f0; display: flex; align-items: center;"></div>
             </div>
             <div class="hud-controls-hint">WASD to Fly | SPACE to Shoot | F for Fullscreen</div>
         </div>
@@ -551,6 +592,85 @@
                 img.onerror = () => resolve(null); // Resolve anyway to avoid infinite hang
                 img.src = src;
             });
+        }
+
+        // Helper functions for HUD SVG icons
+        function getChopperSVG(type) {
+            if (type === 'AIRWOLF') {
+                return `<svg class="hud-chopper-icon" viewBox="0 0 40 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="6" y1="2" x2="34" y2="2" stroke="#00f0ff" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="20" y1="2" x2="20" y2="4" stroke="#00f0ff" stroke-width="2"/>
+                    <path d="M4 11 L14 5 L32 5 L38 9 L32 13 L12 13 Z" fill="#222226" stroke="#00f0ff" stroke-width="1"/>
+                    <path d="M12 13 L32 13 L28 16 L14 16 Z" fill="#eeeeee"/>
+                    <path d="M22 6 L30 6 L34 9 L22 9 Z" fill="#33c4ff"/>
+                    <path d="M4 11 L2 4 L7 8 Z" fill="#00f0ff"/>
+                </svg>`;
+            } else if (type === 'CHINOOK') {
+                return `<svg class="hud-chopper-icon" viewBox="0 0 44 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="2" y1="2" x2="20" y2="2" stroke="#00f0ff" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="24" y1="2" x2="42" y2="2" stroke="#00f0ff" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="11" y1="2" x2="11" y2="5" stroke="#00f0ff" stroke-width="2"/>
+                    <line x1="33" y1="2" x2="33" y2="5" stroke="#00f0ff" stroke-width="2"/>
+                    <rect x="8" y="5" width="28" height="9" rx="2" fill="#556644" stroke="#00f0ff" stroke-width="1"/>
+                    <circle cx="32" cy="9" r="2.5" fill="#88ccee"/>
+                    <circle cx="12" cy="15" r="1.5" fill="#00f0ff"/>
+                    <circle cx="32" cy="15" r="1.5" fill="#00f0ff"/>
+                </svg>`;
+            } else {
+                // BLACK_HAWK / MD-500
+                return `<svg class="hud-chopper-icon" viewBox="0 0 36 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="4" y1="2" x2="32" y2="2" stroke="#00f0ff" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="18" y1="2" x2="18" y2="5" stroke="#00f0ff" stroke-width="2"/>
+                    <path d="M10 5 L24 5 C30 5 32 9 30 13 L12 13 Z" fill="#e5c07b" stroke="#00f0ff" stroke-width="1"/>
+                    <path d="M18 6 L25 6 C28 6 29 9 27 11 L18 11 Z" fill="#64c8ff"/>
+                    <path d="M10 8 L2 8 L2 12 L10 11 Z" fill="#aa8c55"/>
+                    <path d="M3 4 L3 12 L1 8 Z" fill="#00f0ff"/>
+                    <path d="M10 14 L24 14 M14 13 L14 16 M20 13 L20 16" stroke="#00f0ff" stroke-width="1.5"/>
+                </svg>`;
+            }
+        }
+
+        function getHostageSVG(isActive, mode = 'RESCUED') {
+            const activeColor = (mode === 'ONBOARD') ? '#39ff14' : '#00ffff';
+            const emptyColor = 'rgba(255, 255, 255, 0.15)';
+            const strokeColor = isActive ? activeColor : 'rgba(255, 255, 255, 0.35)';
+            const fillColor = isActive ? activeColor : emptyColor;
+            const glow = isActive ? `filter: drop-shadow(0 0 4px ${activeColor});` : '';
+
+            return `<svg class="hud-hostage-icon" style="${glow}" viewBox="0 0 14 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="7" cy="4" r="3" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1"/>
+                <rect x="4" y="8" width="6" height="7" rx="1" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1"/>
+                <rect x="4.5" y="15" width="2" height="5" fill="${fillColor}"/>
+                <rect x="7.5" y="15" width="2" height="5" fill="${fillColor}"/>
+                <rect x="2" y="9" width="1.5" height="5" rx="0.5" fill="${fillColor}"/>
+                <rect x="10.5" y="9" width="1.5" height="5" rx="0.5" fill="${fillColor}"/>
+            </svg>`;
+        }
+
+        function getHostageBadgeSVG() {
+            return `<svg class="hud-badge-icon" viewBox="0 0 24 26" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 5px #00ffff);">
+                <!-- Shield/Badge Frame -->
+                <path d="M12 2 L21 5 L21 16 C21 21 12 24 12 24 C12 24 3 21 3 16 L3 5 Z" fill="rgba(0, 240, 255, 0.15)" stroke="#00ffff" stroke-width="1.5"/>
+                <!-- Detailed Hostage Silhouette -->
+                <circle cx="12" cy="8" r="2.8" fill="#00ffff"/>
+                <path d="M8.5 13 L15.5 13 L15.5 19 L8.5 19 Z" fill="#00ffff"/>
+                <!-- Waving Arms -->
+                <path d="M8.5 13 L5.5 9.5 M15.5 13 L18.5 9.5" stroke="#00ffff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>`;
+        }
+
+        function getCabinBadgeSVG(type) {
+            return `<svg class="hud-badge-icon" viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 5px #39ff14);">
+                <!-- Helicopter Silhouette with Cargo Bay Door -->
+                <line x1="2" y1="3" x2="32" y2="3" stroke="#39ff14" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="17" y1="3" x2="17" y2="6" stroke="#39ff14" stroke-width="2"/>
+                <path d="M8 6 L26 6 C31 6 33 11 31 16 L10 16 Z" fill="rgba(57, 255, 20, 0.2)" stroke="#39ff14" stroke-width="1.5"/>
+                <!-- Illuminated Open Cargo Bay / Cabin Compartment -->
+                <rect x="13" y="8" width="10" height="7" rx="1" fill="#39ff14" opacity="0.9"/>
+                <line x1="18" y1="8" x2="18" y2="15" stroke="#112211" stroke-width="1"/>
+                <path d="M8 9 L2 9 L2 13 L8 12 Z" fill="#39ff14"/>
+                <path d="M8 18 L26 18 M12 16 L12 19 M22 16 L22 19" stroke="#39ff14" stroke-width="1.5"/>
+            </svg>`;
         }
         const GRAVITY = 0.0525; // Reduced by another 30%
         const FRICTION = 0.98;
@@ -873,6 +993,23 @@
                 this.hostageSpawnTimer = 0;
                 this.enemySpawnTimer = 0;
 
+                // Fighter Jet Intercept Count Rules per Stage:
+                // Stage 2~5: 1 time, Stage 6~10: 2 times, Stage 11+: random appearances up to max 8 times
+                this.stageJetsSpawned = 0;
+                if (level === 1) {
+                    this.stageJetsTotal = 0;
+                } else if (level >= 2 && level <= 5) {
+                    this.stageJetsTotal = 1;
+                } else if (level >= 6 && level <= 10) {
+                    this.stageJetsTotal = 2;
+                } else {
+                    // Stage 11+
+                    this.stageJetsTotal = Math.min(8, 3 + Math.floor(Math.random() * 6));
+                }
+                this.jetSpawnTimer = 0;
+                this.nextJetSpawnTime = 10 + Math.random() * 15;
+                this.farRightJetCooldownTimer = 0; // Cooldown for far-right map edge jet triggers
+
                 // Add Player
                 this.player = new Helicopter(this);
                 this.player.lastShot = 0;
@@ -937,11 +1074,36 @@
             updateUI() {
                 document.getElementById('score-display').innerText = `SCORE: ${this.score}`;
                 document.getElementById('stage-display').innerText = `STAGE: ${this.stage}`;
-                document.getElementById('lives-display').innerText = `LIVES: ${Math.max(0, this.lives - 1)}`;
-                document.getElementById('hostages-display').innerText = `HOSTAGES: ${this.hostagesRescued} / ${this.hostagesTarget}`;
+
+                // 1. Right Top: Helicopter Icons for remaining lives (NO "LIVES:" text)
+                const remLives = Math.max(0, this.lives - 1);
+                const choppType = this.helicopterType || 'BLACK_HAWK';
+                let livesHtml = '<div class="hud-icon-container">';
+                for (let i = 0; i < remLives; i++) {
+                    livesHtml += getChopperSVG(choppType);
+                }
+                livesHtml += '</div>';
+                document.getElementById('lives-display').innerHTML = livesHtml;
+
+                // 2. Bottom Left: Realistic Hostage Rescue Badge + Status Icons (NO "HOSTAGES:" text)
+                let hostageHtml = getHostageBadgeSVG() + '<span class="hud-badge-divider"></span><div class="hud-icon-container">';
+                for (let i = 0; i < this.hostagesTarget; i++) {
+                    const isRescued = i < this.hostagesRescued;
+                    hostageHtml += getHostageSVG(isRescued, 'RESCUED');
+                }
+                hostageHtml += '</div>';
+                document.getElementById('hostages-display').innerHTML = hostageHtml;
+
+                // 3. Bottom Right: Helicopter & Cargo Bay Badge + Passenger Seat Icons (NO "ONBOARD:" text)
                 const onboard = this.player ? this.player.passengers : 0;
-                const maxPass = this.player ? this.player.maxPassengers : 16;
-                document.getElementById('onboard-display').innerText = `ONBOARD: ${onboard} / ${maxPass}`;
+                const maxPass = this.player ? this.player.maxPassengers : 3;
+                let onboardHtml = getCabinBadgeSVG(choppType) + '<span class="hud-badge-divider"></span><div class="hud-icon-container">';
+                for (let i = 0; i < maxPass; i++) {
+                    const isBoarded = i < onboard;
+                    onboardHtml += getHostageSVG(isBoarded, 'ONBOARD');
+                }
+                onboardHtml += '</div>';
+                document.getElementById('onboard-display').innerHTML = onboardHtml;
             }
 
             update(dt) {
@@ -974,25 +1136,59 @@
                     }
                 }
 
+                // Fighter Jet Intercept Logic (Stage 2+)
+                if (this.stage >= 2 && this.stageJetsSpawned < this.stageJetsTotal) {
+                    this.jetSpawnTimer += dt;
+                    if (this.jetSpawnTimer >= this.nextJetSpawnTime) {
+                        this.jetSpawnTimer = 0;
+                        this.nextJetSpawnTime = 18 + Math.random() * 18;
+                        this.stageJetsSpawned++;
+
+                        const spawnRight = Math.random() < 0.5;
+                        const spawnX = spawnRight ? (CANVAS_WIDTH - this.camX + 150) : (-this.camX - 150);
+                        const jet = new FighterJet(this, spawnX, spawnRight);
+                        this.entities.push(jet);
+
+                        this.floatingTexts.push(new FloatingText("WARNING: FIGHTER JET INBOUND!", CANVAS_WIDTH / 2, 220, '#ff3333', 2.5, true, this));
+                    }
+                }
+
+                // Far-Right Map Edge Fighter Jet Trigger (All stages including Stage 1)
+                if (this.farRightJetCooldownTimer > 0) {
+                    this.farRightJetCooldownTimer -= dt;
+                }
+                if (this.player && !this.player.markedForDeletion && this.player.x >= 17500) {
+                    if (this.farRightJetCooldownTimer <= 0) {
+                        this.farRightJetCooldownTimer = 30; // 30-second cooldown between triggers
+
+                        const spawnRight = Math.random() < 0.5;
+                        const spawnX = spawnRight ? (CANVAS_WIDTH - this.camX + 150) : (-this.camX - 150);
+                        const jet = new FighterJet(this, spawnX, spawnRight);
+                        this.entities.push(jet);
+
+                        this.floatingTexts.push(new FloatingText("WARNING: FAR-RIGHT INTERCEPT JET INBOUND!", CANVAS_WIDTH / 2, 220, '#ff3333', 2.5, true, this));
+                    }
+                }
+
                 // Update Entities
                 this.entities.forEach(e => e.update(dt));
                 this.particles.forEach(p => p.update(dt));
                 this.floatingTexts.forEach(t => t.update(dt));
 
                 // Collision Detection
-                // Projectiles vs Enemies/Player
-                const projectiles = this.entities.filter(e => e instanceof Projectile);
-                const targets = this.entities.filter(e => e instanceof Tank || e instanceof Helicopter);
+                // Projectiles & HomingMissiles vs Enemies/Player/FighterJet
+                const projectiles = this.entities.filter(e => e instanceof Projectile || e instanceof HomingMissile);
+                const targets = this.entities.filter(e => e instanceof Tank || e instanceof Helicopter || e instanceof FighterJet);
 
                 projectiles.forEach(p => {
                     targets.forEach(t => {
                         if (p.markedForDeletion || t.markedForDeletion) return;
                         if (p.isPlayer && t instanceof Helicopter) return; // No friendly fire
-                        if (!p.isPlayer && t instanceof Tank) return; // Enemies don't shoot each other
+                        if (!p.isPlayer && (t instanceof Tank || t instanceof FighterJet)) return; // Enemies don't shoot each other
 
-                        // Prevent player projectiles from attacking off-screen tanks
-                        if (p.isPlayer && t instanceof Tank) {
-                            const isOnScreen = t.x >= -this.camX && t.x <= CANVAS_WIDTH - this.camX;
+                        // Prevent player projectiles from attacking off-screen tanks/jets
+                        if (p.isPlayer && (t instanceof Tank || t instanceof FighterJet)) {
+                            const isOnScreen = t.x >= -this.camX - 50 && t.x <= CANVAS_WIDTH - this.camX + 50;
                             if (!isOnScreen) return;
                         }
 
@@ -1012,6 +1208,12 @@
                                     t.markedForDeletion = true;
                                     this.spawnExplosion(t.x, t.y, 'BIG');
                                     this.score += 100;
+                                    this.updateUI();
+                                } else if (t instanceof FighterJet) {
+                                    t.markedForDeletion = true;
+                                    this.spawnExplosion(t.x, t.y, 'BIG');
+                                    this.score += 500; // 5x Tank Score (100 * 5 = 500)
+                                    this.floatingTexts.push(new FloatingText("+500 JET DESTROYED!", t.x, t.y - 30, '#ffcc00'));
                                     this.updateUI();
                                 } else if (t instanceof Helicopter) {
                                     if (t.isDisembarking) {
@@ -1035,6 +1237,38 @@
                         }
                     });
                 });
+
+                // Helicopter vs FighterJet direct mid-air body collision
+                if (this.player && !this.player.markedForDeletion && !this.player.isDisembarking) {
+                    const jets = this.entities.filter(e => e instanceof FighterJet && !e.markedForDeletion);
+                    jets.forEach(jet => {
+                        if (Math.abs(this.player.x - jet.x) < (this.player.width / 2 + jet.width / 2) * 0.75 &&
+                            Math.abs(this.player.y - jet.y) < (this.player.height / 2 + jet.height / 2) * 0.75) {
+
+                            // Both entities explode & die
+                            jet.markedForDeletion = true;
+                            this.player.markedForDeletion = true;
+
+                            this.spawnExplosion(jet.x, jet.y, 'BIG');
+                            this.spawnExplosion(this.player.x, this.player.y, 'BIG');
+
+                            // Player still gets 500 points for destroying the fighter jet!
+                            this.score += 500;
+                            this.floatingTexts.push(new FloatingText("+500 JET DESTROYED!", jet.x, jet.y - 30, '#ffcc00'));
+
+                            // Player death handling
+                            this.lives--;
+                            this.player.passengers = 0;
+                            this.updateUI();
+
+                            if (this.lives <= 0) {
+                                this.gameOver();
+                            } else {
+                                setTimeout(() => this.respawnPlayer(), 2000);
+                            }
+                        }
+                    });
+                }
 
                 // Cleanup dead entities
                 this.entities = this.entities.filter(e => !e.markedForDeletion);
@@ -1527,8 +1761,8 @@
                             this.game.entities.push(h);
                         }
                     } else {
-                        // All passengers have disembarked. Check if any running hostages are still heading to the base
-                        const runningHostages = this.game.entities.filter(e => e instanceof Hostage && e.state === 'RUNNING_TO_BASE' && !e.markedForDeletion).length;
+                        // All passengers have disembarked. Check if any running/thanking hostages are still at the base platform
+                        const runningHostages = this.game.entities.filter(e => e instanceof Hostage && (e.state === 'RUNNING_TO_BASE' || e.state === 'THANKING_BASE') && !e.markedForDeletion).length;
                         if (runningHostages === 0) {
                             // Cutscene finished! Re-enable player controls
                             this.isDisembarking = false;
@@ -1539,34 +1773,49 @@
 
             shoot() {
                 const type = this.game.helicopterType || 'BLACK_HAWK';
-                const offX = this.facingRight ? 40 : -40;
-                const baseAngle = this.facingRight ? 0.1 : Math.PI - 0.1;
+
+                // Forward tangent angle of helicopter nose in world space
+                const forwardAngle = this.facingRight ? this.angle : (Math.PI + this.angle);
 
                 if (type === 'AIRWOLF') {
-                    // 3-way spread missiles, 4.5 degrees apart (0.0785 rad), rotated clockwise by 6 degrees (0.10472 rad)
+                    // 3-way spread missiles aligned along nose forward tangent with consistent self-propelled velocity
                     const rot6 = 6 * Math.PI / 180;
-                    const angles = [baseAngle - 0.0785 + rot6, baseAngle + rot6, baseAngle + 0.0785 + rot6];
-                    const airwolfOffX = this.facingRight ? 25 : -25; // front 1/3 of belly close to nose
-                    const airwolfOffY = 18; // lower belly skin boundary
+                    const baseNoseAngle = forwardAngle + (this.facingRight ? rot6 : -rot6);
+                    const angles = [baseNoseAngle - 0.0785, baseNoseAngle, baseNoseAngle + 0.0785];
+
+                    // Transform local muzzle offset by helicopter tilt angle
+                    const localX = this.facingRight ? 25 : -25;
+                    const localY = 18;
+                    const spawnX = this.x + (localX * Math.cos(this.angle) - localY * Math.sin(this.angle));
+                    const spawnY = this.y + (localX * Math.sin(this.angle) + localY * Math.cos(this.angle));
+
                     angles.forEach(angle => {
-                        const p = new Projectile(this.game, this.x + airwolfOffX, this.y + airwolfOffY, angle, true, 'MISSILE');
-                        p.vx += this.vx;
+                        const p = new Projectile(this.game, spawnX, spawnY, angle, true, 'MISSILE');
+                        // Consistent self-propelled missile speed, isolated from transient scroll/inertia distortions
+                        p.vx += this.vx * 0.1;
+                        p.vy += this.vy * 0.1;
                         this.game.entities.push(p);
                     });
                     this.muzzleFlashTimer = 0.05;
                 } else if (type === 'CHINOOK') {
-                    // Falling bomb with helicopter's horizontal speed inertia (120% effect) and slight downward push (reduced by 15% from 3 to 2.55)
-                    // Firing point is exactly at the lower belly center (x_offset = 0, y_offset = 20)
-                    const p = new Projectile(this.game, this.x, this.y + 20, baseAngle, true, 'BOMB');
+                    // Falling bomb from lower belly center
+                    const spawnX = this.x - 20 * Math.sin(this.angle);
+                    const spawnY = this.y + 20 * Math.cos(this.angle);
+                    const p = new Projectile(this.game, spawnX, spawnY, forwardAngle, true, 'BOMB');
                     p.vx = this.vx * 1.2;
                     p.vy = this.vy + 2.55;
                     this.game.entities.push(p);
                     this.muzzleFlashTimer = 0.05;
                 } else {
-                    // MD-500 (BLACK_HAWK) - standard bullet tracer
-                    const md500OffX = this.facingRight ? -20 : 20;
-                    const p = new Projectile(this.game, this.x + md500OffX, this.y + 10, baseAngle, true, 'BULLET');
-                    p.vx += this.vx;
+                    // MD-500 (BLACK_HAWK) - standard bullet tracer along nose forward tangent
+                    const localX = this.facingRight ? 35 : -35;
+                    const localY = 10;
+                    const spawnX = this.x + (localX * Math.cos(this.angle) - localY * Math.sin(this.angle));
+                    const spawnY = this.y + (localX * Math.sin(this.angle) + localY * Math.cos(this.angle));
+
+                    const p = new Projectile(this.game, spawnX, spawnY, forwardAngle, true, 'BULLET');
+                    p.vx += this.vx * 0.1;
+                    p.vy += this.vy * 0.1;
                     this.game.entities.push(p);
                     this.muzzleFlashTimer = 0.05;
                 }
@@ -1865,6 +2114,8 @@
                 this.speed = 1.4;
                 this.facingRight = true;
                 this.boardedProcessed = false;
+                this.helpMsgIndex = Math.floor(Math.random() * 4);
+                this.helpMsgTimer = 0;
             }
 
             update(dt) {
@@ -1872,24 +2123,36 @@
 
                 const distToPlayer = Math.abs(this.game.player.x - this.x);
                 const playerLanded = this.game.player.y > CANVAS_HEIGHT - 150;
+                const isOnScreen = (this.x >= -this.game.camX - 50 && this.x <= CANVAS_WIDTH - this.game.camX + 50);
 
                 if (this.state === 'WAITING') {
-                    if (distToPlayer < 400 && playerLanded) {
+                    if (isOnScreen) {
                         this.state = 'WAVING';
+                        this.helpMsgTimer = 0;
                     }
                 } else if (this.state === 'WAVING') {
-                    if (!playerLanded) this.state = 'WAITING';
-                    if (distToPlayer < 50 && playerLanded) {
-                        if (this.game.player.passengers < this.game.player.maxPassengers) {
-                            this.state = 'BOARDING';
-                            this.timer = 0;
+                    if (!isOnScreen) {
+                        this.state = 'WAITING';
+                    } else if (playerLanded) {
+                        if (distToPlayer < 50) {
+                            if (this.game.player.passengers < this.game.player.maxPassengers) {
+                                this.state = 'BOARDING';
+                                this.timer = 0;
+                            }
+                        } else if (distToPlayer < 500) {
+                            this.state = 'FOLLOWING';
                         }
-                    } else if (distToPlayer > 50 && playerLanded) {
-                        this.state = 'FOLLOWING';
+                    }
+
+                    // Cycle help message every 2.5s
+                    this.helpMsgTimer += dt;
+                    if (this.helpMsgTimer >= 2.5) {
+                        this.helpMsgTimer = 0;
+                        this.helpMsgIndex = (this.helpMsgIndex + 1) % 4;
                     }
                 } else if (this.state === 'FOLLOWING') {
                     if (!playerLanded) {
-                        this.state = 'WAITING';
+                        this.state = isOnScreen ? 'WAVING' : 'WAITING';
                     } else {
                         if (this.game.player.x > this.x) {
                             this.x += this.speed;
@@ -1940,30 +2203,41 @@
                     const targetX = 200;
                     const distToTarget = targetX - this.x;
                     if (Math.abs(distToTarget) < 5) {
-                        // Reached door! Secure hostage
-                        this.markedForDeletion = true;
+                        // Reached door! Start thanking animation at base door
+                        this.state = 'THANKING_BASE';
+                        this.timer = 0;
+                        this.facingRight = true;
                         this.game.score += 50;
                         this.game.hostagesRescued++;
                         this.game.updateUI();
 
-                        // Neon cyan secured text
+                        const thankTexts = ["Thank You!", "Safe at last!", "Cheers, Captain!", "We made it!", "Freedom!"];
+                        const randomThank = thankTexts[Math.floor(Math.random() * thankTexts.length)];
                         this.game.floatingTexts.push(new FloatingText("+50 SECURED", 200, CANVAS_HEIGHT - 180, '#0ff'));
-
-                        // Check Stage Victory
-                        if (this.game.hostagesRescued >= this.game.hostagesTarget) {
-                            this.game.nextLevel();
-                        }
+                        this.game.floatingTexts.push(new FloatingText(randomThank, 200, CANVAS_HEIGHT - 140, '#ff0'));
                     } else {
                         const dir = Math.sign(distToTarget);
                         this.x += dir * this.speed * 1.5; // Fast sprint to safety
                         this.facingRight = (dir > 0);
+                    }
+                } else if (this.state === 'THANKING_BASE') {
+                    if (this.timer >= 1.2) {
+                        this.markedForDeletion = true;
+                        // Check Stage Victory
+                        if (this.game.hostagesRescued >= this.game.hostagesTarget) {
+                            this.game.nextLevel();
+                        }
                     }
                 }
             }
 
             draw(ctx) {
                 ctx.save();
-                ctx.translate(this.x, this.y);
+                let drawY = this.y;
+                if (this.state === 'BOARDING') {
+                    drawY -= Math.abs(Math.sin(this.timer * 14)) * 4; // Joyful celebratory hop during boarding pause
+                }
+                ctx.translate(this.x, drawY);
 
                 const isDarkBg = this.game.timeOfDay !== 'DAY';
 
@@ -2014,8 +2288,8 @@
                     ctx.fillRect(-4, -10, 3, 10);
                     ctx.fillRect(1, -10, 3, 10);
 
-                    // Standing arms (only draw if not waving or boarding)
-                    if (this.state !== 'WAVING' && this.state !== 'BOARDING') {
+                    // Standing arms (only draw if not waving, boarding or thanking)
+                    if (this.state !== 'WAVING' && this.state !== 'BOARDING' && this.state !== 'THANKING_BASE') {
                         ctx.strokeStyle = isDarkBg ? '#aab' : '#336';
                         ctx.lineWidth = 2.5;
                         ctx.beginPath();
@@ -2038,17 +2312,164 @@
                 ctx.fill();
 
                 if (this.state === 'WAVING') {
+                    // Waving Arms Animation (half length for realistic proportion)
                     ctx.strokeStyle = '#fcc';
+                    ctx.lineWidth = 2.5;
+                    const waveL = Math.sin(this.timer * 12) * 5;
+                    const waveR = Math.cos(this.timer * 12) * 5;
+
+                    // Left Arm waving high (half length)
+                    ctx.beginPath();
+                    ctx.moveTo(-4, -22);
+                    ctx.lineTo(-7 + waveL, -31 + Math.abs(waveL) * 0.3);
+                    ctx.stroke();
+
+                    // Right Arm waving high (half length)
+                    ctx.beginPath();
+                    ctx.moveTo(4, -22);
+                    ctx.lineTo(7 + waveR, -31 + Math.abs(waveR) * 0.3);
+                    ctx.stroke();
+
+                    // Speech Bubble with Call For Help Text Message
+                    const helpTexts = ["HELP!", "SOS!", "OVER HERE!", "SAVE US!"];
+                    const text = helpTexts[this.helpMsgIndex % helpTexts.length];
+                    const bubbleY = -44 + Math.sin(this.timer * 6) * 3;
+
+                    ctx.save();
+                    ctx.font = 'bold 13px Orbitron, sans-serif';
+                    const textWidth = ctx.measureText(text).width;
+                    const bw = Math.max(48, textWidth + 14);
+                    const bh = 20;
+                    const bx = -bw / 2;
+                    const by = bubbleY - bh;
+
+                    // Speech bubble shadow
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 2;
+
+                    // Bubble body background & border
+                    ctx.fillStyle = '#fffff0';
+                    ctx.strokeStyle = '#ffcc00';
                     ctx.lineWidth = 2;
+
                     ctx.beginPath();
-                    ctx.moveTo(-5, -25);
-                    const wave = Math.sin(this.timer * 10) * 10;
-                    ctx.lineTo(-10, -35 + wave);
+                    if (ctx.roundRect) {
+                        ctx.roundRect(bx, by, bw, bh, 5);
+                    } else {
+                        ctx.rect(bx, by, bw, bh);
+                    }
+                    ctx.fill();
                     ctx.stroke();
+
+                    // Pointer tail
+                    ctx.fillStyle = '#fffff0';
                     ctx.beginPath();
-                    ctx.moveTo(5, -25);
-                    ctx.lineTo(10, -35 - wave);
+                    ctx.moveTo(-4, by + bh - 1);
+                    ctx.lineTo(0, by + bh + 5);
+                    ctx.lineTo(4, by + bh - 1);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffcc00';
+                    ctx.beginPath();
+                    ctx.moveTo(-4, by + bh - 1);
+                    ctx.lineTo(0, by + bh + 5);
+                    ctx.lineTo(4, by + bh - 1);
                     ctx.stroke();
+
+                    // Urgent Red Text
+                    ctx.fillStyle = '#d92626';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(text, 0, by + bh / 2 + 1);
+
+                    ctx.restore();
+                } else if (this.state === 'BOARDING') {
+                    // Hands-Up Celebrating / Cheering Animation (舉手歡慶動畫)
+                    ctx.strokeStyle = '#fcc';
+                    ctx.lineWidth = 2.5;
+                    const cheerArm = Math.sin(this.timer * 16) * 3;
+
+                    // Left Arm raised high in V-shape cheer (\)
+                    ctx.beginPath();
+                    ctx.moveTo(-4, -22);
+                    ctx.lineTo(-9, -33 - cheerArm);
+                    ctx.stroke();
+
+                    // Right Arm raised high in V-shape cheer (/)
+                    ctx.beginPath();
+                    ctx.moveTo(4, -22);
+                    ctx.lineTo(9, -33 - cheerArm);
+                    ctx.stroke();
+                } else if (this.state === 'THANKING_BASE') {
+                    // Single-Hand Waving Animation at Base Door (單手揮手致謝動畫)
+                    ctx.strokeStyle = '#fcc';
+                    ctx.lineWidth = 2.5;
+                    const wave = Math.sin(this.timer * 14) * 6;
+
+                    // Right Arm raised high waving single hand
+                    ctx.beginPath();
+                    ctx.moveTo(4, -22);
+                    ctx.lineTo(9 + wave, -32 + Math.abs(wave) * 0.2);
+                    ctx.stroke();
+
+                    // Left Arm resting naturally at side
+                    ctx.beginPath();
+                    ctx.moveTo(-4, -22);
+                    ctx.lineTo(-6, -12);
+                    ctx.stroke();
+
+                    // Speech Bubble expressing thanks
+                    const bubbleY = -42 + Math.sin(this.timer * 6) * 2;
+                    const text = "THANK YOU!";
+
+                    ctx.save();
+                    ctx.font = 'bold 12px Orbitron, sans-serif';
+                    const textWidth = ctx.measureText(text).width;
+                    const bw = textWidth + 14;
+                    const bh = 18;
+                    const bx = -bw / 2;
+                    const by = bubbleY - bh;
+
+                    // Speech bubble shadow
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 2;
+
+                    // Bubble body (warm white with cyan neon border)
+                    ctx.fillStyle = '#fffff0';
+                    ctx.strokeStyle = '#00e5ff';
+                    ctx.lineWidth = 2;
+
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(bx, by, bw, bh, 4);
+                    } else {
+                        ctx.rect(bx, by, bw, bh);
+                    }
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Pointer tail
+                    ctx.fillStyle = '#fffff0';
+                    ctx.beginPath();
+                    ctx.moveTo(-3, by + bh - 1);
+                    ctx.lineTo(0, by + bh + 4);
+                    ctx.lineTo(3, by + bh - 1);
+                    ctx.fill();
+                    ctx.strokeStyle = '#00e5ff';
+                    ctx.beginPath();
+                    ctx.moveTo(-3, by + bh - 1);
+                    ctx.lineTo(0, by + bh + 5);
+                    ctx.lineTo(3, by + bh - 1);
+                    ctx.stroke();
+
+                    // Cyan Text
+                    ctx.fillStyle = '#0077b6';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(text, 0, by + bh / 2 + 1);
+
+                    ctx.restore();
                 }
 
                 ctx.restore();
@@ -2217,9 +2638,9 @@
                 // Splash damage (increased by 33% from original 84px to 112px. width = 24. Total radius = 24 * 4.655 = 111.72px)
                 const splashRadius = this.width * 4.655;
                 this.game.entities.forEach(t => {
-                    if (t instanceof Tank && !t.markedForDeletion) {
-                        // Prevent bomb splash from hitting off-screen tanks
-                        const isOnScreen = t.x >= -this.game.camX && t.x <= CANVAS_WIDTH - this.game.camX;
+                    if ((t instanceof Tank || t instanceof FighterJet) && !t.markedForDeletion) {
+                        // Prevent bomb splash from hitting off-screen targets
+                        const isOnScreen = t.x >= -this.game.camX - 50 && t.x <= CANVAS_WIDTH - this.game.camX + 50;
                         if (!isOnScreen) return;
 
                         const dx = t.x - this.x;
@@ -2228,8 +2649,9 @@
                         if (dist <= splashRadius) {
                             t.markedForDeletion = true;
                             this.game.spawnExplosion(t.x, t.y, 'BIG');
-                            this.game.score += 100;
-                            this.game.floatingTexts.push(new FloatingText("SPLASH!", t.x, t.y - 20, '#ff0'));
+                            const points = (t instanceof FighterJet) ? 500 : 100;
+                            this.game.score += points;
+                            this.game.floatingTexts.push(new FloatingText((t instanceof FighterJet) ? "+500 JET DESTROYED!" : "SPLASH!", t.x, t.y - 20, '#ffcc00'));
                         }
                     }
                 });
@@ -2399,6 +2821,366 @@
                 ctx.fillStyle = this.color;
                 ctx.translate(this.x, this.y);
                 ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        class FighterJet extends Entity {
+            constructor(game, x, spawnRight) {
+                super(game, x, 180 + Math.random() * 200);
+                this.width = 85;
+                this.height = 28;
+                this.zIndex = 25;
+                this.facingRight = !spawnRight;
+                this.baseSpeed = 3.85; // 5.5 reduced by another 30% = 3.85 px/frame
+                this.cooldown = 0.8;
+                this.missilesFired = 0;
+                this.maxMissiles = 1; // AT MOST 1 homing missile per jet intercept
+                this.passCount = 0; // 0 = first pass, 1 = second (return) pass
+                this.hasFired = false;
+                this.hp = 1;
+
+                this.setStraightLineVelocity();
+            }
+
+            setStraightLineVelocity() {
+                // Straight line trajectory inclined between -20 deg and +20 deg
+                const maxAngleRad = 20 * (Math.PI / 180);
+                const angle = (Math.random() * 2 - 1) * maxAngleRad; // [-20 deg, +20 deg]
+                this.vx = this.facingRight ? (this.baseSpeed * Math.cos(angle)) : (-this.baseSpeed * Math.cos(angle));
+                this.vy = this.baseSpeed * Math.sin(angle);
+            }
+
+            update(dt) {
+                if (this.cooldown > 0) this.cooldown -= dt;
+
+                // Move along fixed straight-line trajectory
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Soft altitude boundaries
+                if (this.y < 80) {
+                    this.y = 80;
+                    this.vy = Math.abs(this.vy);
+                } else if (this.y > CANVAS_HEIGHT - 280) {
+                    this.y = CANVAS_HEIGHT - 280;
+                    this.vy = -Math.abs(this.vy);
+                }
+
+                const player = this.game.player;
+                const distToPlayer = player ? Math.hypot(player.x - this.x, player.y - this.y) : 9999;
+                const horizDist = player ? Math.abs(player.x - this.x) : 9999;
+
+                // Firing logic: AT MOST 1 missile per jet intercept
+                if (this.cooldown <= 0 && this.missilesFired < this.maxMissiles) {
+                    if (distToPlayer < 900 || (!this.hasFired && horizDist < 350)) {
+                        this.shootHomingMissile();
+                        this.missilesFired++;
+                        this.hasFired = true;
+                    }
+                }
+
+                // 2-pass back-and-forth straight line loop
+                const camX = this.game.camX || 0;
+                if (this.passCount === 0) {
+                    // First pass: turn around when reaching opposite screen boundary
+                    if ((this.facingRight && this.x > CANVAS_WIDTH - camX + 120) ||
+                        (!this.facingRight && this.x < -camX - 120)) {
+                        this.passCount = 1;
+                        this.facingRight = !this.facingRight;
+                        this.setStraightLineVelocity(); // New straight trajectory [-20 deg, +20 deg]
+                        this.cooldown = 0.5;
+                    }
+                } else if (this.passCount === 1) {
+                    // Second (return) pass: delete when exiting offscreen
+                    if ((this.facingRight && this.x > CANVAS_WIDTH - camX + 250) ||
+                        (!this.facingRight && this.x < -camX - 250)) {
+                        this.markedForDeletion = true;
+                    }
+                }
+            }
+
+            shootHomingMissile() {
+                const flightAngle = Math.atan2(this.vy, this.vx);
+                const missile = new HomingMissile(this.game, this.x, this.y + 8, flightAngle);
+                this.game.entities.push(missile);
+                this.game.particles.push(new Particle(this.game, this.x, this.y + 8, '#ff9900', 3, 0.4));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                const flightAngle = Math.atan2(this.vy, this.vx);
+                const drawAngle = this.facingRight ? flightAngle : (flightAngle + Math.PI);
+                ctx.rotate(drawAngle);
+                if (!this.facingRight) {
+                    ctx.scale(-1, 1);
+                }
+
+                ctx.shadowColor = 'rgba(0,0,0,0.35)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 12;
+
+                // Engine Afterburner Flames (Twin engines)
+                ctx.fillStyle = Math.random() < 0.5 ? '#ff4400' : '#ffcc00';
+                ctx.beginPath();
+                ctx.moveTo(-40, -6);
+                ctx.lineTo(-40 - (12 + Math.random() * 12), -4);
+                ctx.lineTo(-40, -2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(-40, 2);
+                ctx.lineTo(-40 - (12 + Math.random() * 12), 4);
+                ctx.lineTo(-40, 6);
+                ctx.fill();
+
+                // Engine Nozzles (Twin titanium cylinders)
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(-42, -7, 6, 4);
+                ctx.fillRect(-42, 3, 6, 4);
+
+                // --- SU-33 MAIN FUSELAGE (Base Sky-Blue Camo) ---
+                ctx.fillStyle = '#2563eb'; // Su-33 Naval Sky Blue base
+                ctx.beginPath();
+                ctx.moveTo(-40, -6);
+                ctx.lineTo(-15, -9);
+                ctx.lineTo(15, -5);
+                ctx.lineTo(42, 0); // Nose tip
+                ctx.lineTo(15, 5);
+                ctx.lineTo(-15, 9);
+                ctx.lineTo(-40, 6);
+                ctx.closePath();
+                ctx.fill();
+
+                // --- BLUE CAMOUFLAGE BLOTCHES (Naval Blue & Steel Blue Pattern) ---
+                ctx.fillStyle = '#1e3a8a'; // Dark naval blue camo patch 1
+                ctx.beginPath();
+                ctx.moveTo(-10, -8);
+                ctx.lineTo(5, -6);
+                ctx.lineTo(0, 0);
+                ctx.lineTo(-12, -2);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(10, 2);
+                ctx.lineTo(25, 1);
+                ctx.lineTo(20, 4);
+                ctx.lineTo(8, 5);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#60a5fa'; // Light cyan blue camo patch 2
+                ctx.beginPath();
+                ctx.moveTo(-25, -5);
+                ctx.lineTo(-15, -7);
+                ctx.lineTo(-12, 3);
+                ctx.lineTo(-22, 2);
+                ctx.closePath();
+                ctx.fill();
+
+                // --- MAIN SWEPT WINGS (Su-33 Flanker Wing shape) ---
+                ctx.fillStyle = '#1d4ed8';
+                // Top Main Wing
+                ctx.beginPath();
+                ctx.moveTo(5, -4);
+                ctx.lineTo(-20, -28);
+                ctx.lineTo(-8, -28);
+                ctx.lineTo(12, -4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Bottom Main Wing
+                ctx.beginPath();
+                ctx.moveTo(5, 4);
+                ctx.lineTo(-20, 28);
+                ctx.lineTo(-8, 28);
+                ctx.lineTo(12, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // --- CANARDS (鴨翼 - Su-33 signature front foreplanes) ---
+                ctx.fillStyle = '#3b82f6';
+                // Top Canard
+                ctx.beginPath();
+                ctx.moveTo(18, -4);
+                ctx.lineTo(12, -14);
+                ctx.lineTo(22, -12);
+                ctx.lineTo(25, -3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#60a5fa';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Bottom Canard
+                ctx.beginPath();
+                ctx.moveTo(18, 3);
+                ctx.lineTo(12, 14);
+                ctx.lineTo(22, 12);
+                ctx.lineTo(25, 3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // --- TWIN VERTICAL TAIL STABILIZERS (雙尾翼) ---
+                ctx.fillStyle = '#1e3d59';
+                ctx.beginPath();
+                ctx.moveTo(-22, -6);
+                ctx.lineTo(-36, -22);
+                ctx.lineTo(-24, -22);
+                ctx.lineTo(-12, -6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#93c5fd';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // --- COCKPIT CANOPY & IRST BULB ---
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.9)'; // Tinted Cyan Glass
+                ctx.beginPath();
+                ctx.ellipse(18, -2, 9, 3.5, 0.05, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#e0f2fe';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Nose Radome Cone (Su-33 Grey Nose)
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath();
+                ctx.moveTo(32, -2);
+                ctx.lineTo(44, 0);
+                ctx.lineTo(32, 2);
+                ctx.closePath();
+                ctx.fill();
+
+                // IRST Sensor Bulb in front of canopy
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(27, -4, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class HomingMissile extends Entity {
+            constructor(game, x, y, initialAngle) {
+                super(game, x, y);
+                this.width = 16;
+                this.height = 8;
+                this.zIndex = 35;
+                this.angle = initialAngle;
+                this.speed = 6.75; // Exactly 90% of CH-47 Chinook max speed (7.5)
+                this.turnRate = 0.0205; // Turn radius enlarged (turnRate 0.0205)
+                this.trackingTimer = 0;
+                this.fuelOut = false;
+                this.life = 7.5;
+                this.isPlayer = false;
+            }
+
+            update(dt) {
+                this.life -= dt;
+                if (this.life <= 0) {
+                    this.explode();
+                    return;
+                }
+
+                if (!this.fuelOut) {
+                    this.trackingTimer += dt;
+                    if (this.trackingTimer >= 4.0) {
+                        this.fuelOut = true;
+                        // Spawn out-of-fuel ignition failure spark particles
+                        for (let i = 0; i < 10; i++) {
+                            const pColor = Math.random() < 0.5 ? '#ff4400' : '#ffaa00';
+                            this.game.particles.push(new Particle(this.game, this.x, this.y, pColor, 2 + Math.random() * 3, 0.6));
+                        }
+                    }
+                }
+
+                if (!this.fuelOut) {
+                    // Active Homing Tracking mode
+                    const player = this.game.player;
+                    const targetX = player ? player.x : this.x;
+                    const targetY = player ? player.y : this.y;
+                    const dx = targetX - this.x;
+                    const dy = targetY - this.y;
+                    const targetAngle = Math.atan2(dy, dx);
+
+                    let angleDiff = targetAngle - this.angle;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+                    this.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), this.turnRate);
+
+                    this.vx = Math.cos(this.angle) * this.speed;
+                    this.vy = Math.sin(this.angle) * this.speed;
+
+                    if (Math.random() < 0.6) {
+                        const tailX = this.x - Math.cos(this.angle) * 10;
+                        const tailY = this.y - Math.sin(this.angle) * 10;
+                        this.game.particles.push(new Particle(this.game, tailX, tailY, '#ffaa00', 1, 0.4));
+                    }
+                } else {
+                    // Fuel Out: Engine cut-out! Falls under gravity acceleration
+                    this.vy += 0.22; // Gravity drop
+                    this.angle = Math.atan2(this.vy, this.vx);
+
+                    // Out of fuel sparks & trail
+                    if (Math.random() < 0.75) {
+                        const tailX = this.x - Math.cos(this.angle) * 8;
+                        const tailY = this.y - Math.sin(this.angle) * 8;
+                        const color = Math.random() < 0.5 ? '#ff2200' : '#ffcc00';
+                        this.game.particles.push(new Particle(this.game, tailX, tailY, color, 1.5, 0.35));
+                    }
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.y > CANVAS_HEIGHT - 100) {
+                    this.explode();
+                }
+            }
+
+            explode() {
+                if (this.markedForDeletion) return;
+                this.markedForDeletion = true;
+                this.game.spawnExplosion(this.x, this.y, 'SMALL');
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.shadowColor = '#ff3300';
+                ctx.shadowBlur = 6;
+
+                ctx.fillStyle = '#444';
+                ctx.fillRect(-8, -3, 12, 6);
+
+                ctx.fillStyle = '#ff2222';
+                ctx.beginPath();
+                ctx.moveTo(4, -3);
+                ctx.lineTo(10, 0);
+                ctx.lineTo(4, 3);
+                ctx.fill();
+
+                ctx.fillStyle = '#ff9900';
+                ctx.beginPath();
+                ctx.moveTo(-8, -5);
+                ctx.lineTo(-4, -3);
+                ctx.lineTo(-8, -3);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(-8, 5);
+                ctx.lineTo(-4, 3);
+                ctx.lineTo(-8, 3);
+                ctx.fill();
+
                 ctx.restore();
             }
         }
