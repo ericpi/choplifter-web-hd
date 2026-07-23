@@ -1071,6 +1071,23 @@
                 this.fadeTransition(null, this.victoryScreen);
             }
 
+            addScore(points) {
+                if (points <= 0) return;
+                const oldMilestone = Math.floor(this.score / 5000);
+                this.score += points;
+                const newMilestone = Math.floor(this.score / 5000);
+
+                if (newMilestone > oldMilestone) {
+                    const extraLives = newMilestone - oldMilestone;
+                    this.lives += extraLives;
+                    const px = this.player ? this.player.x : CANVAS_WIDTH / 2;
+                    const py = this.player ? (this.player.y - 40) : 180;
+                    this.floatingTexts.push(new FloatingText("1UP! EXTRA LIFE!", px, py, '#39ff14', 3.0, false, this));
+                }
+
+                this.updateUI();
+            }
+
             updateUI() {
                 document.getElementById('score-display').innerText = `SCORE: ${this.score}`;
                 document.getElementById('stage-display').innerText = `STAGE: ${this.stage}`;
@@ -1207,14 +1224,12 @@
                                 if (t instanceof Tank) {
                                     t.markedForDeletion = true;
                                     this.spawnExplosion(t.x, t.y, 'BIG');
-                                    this.score += 100;
-                                    this.updateUI();
+                                    this.addScore(100);
                                 } else if (t instanceof FighterJet) {
                                     t.markedForDeletion = true;
                                     this.spawnExplosion(t.x, t.y, 'BIG');
-                                    this.score += 500; // 5x Tank Score (100 * 5 = 500)
                                     this.floatingTexts.push(new FloatingText("+500 JET DESTROYED!", t.x, t.y - 30, '#ffcc00'));
-                                    this.updateUI();
+                                    this.addScore(500); // 5x Tank Score (100 * 5 = 500)
                                 } else if (t instanceof Helicopter) {
                                     if (t.isDisembarking) {
                                         p.markedForDeletion = true;
@@ -1253,8 +1268,8 @@
                             this.spawnExplosion(this.player.x, this.player.y, 'BIG');
 
                             // Player still gets 500 points for destroying the fighter jet!
-                            this.score += 500;
                             this.floatingTexts.push(new FloatingText("+500 JET DESTROYED!", jet.x, jet.y - 30, '#ffcc00'));
+                            this.addScore(500);
 
                             // Player death handling
                             this.lives--;
@@ -2207,9 +2222,8 @@
                         this.state = 'THANKING_BASE';
                         this.timer = 0;
                         this.facingRight = true;
-                        this.game.score += 50;
                         this.game.hostagesRescued++;
-                        this.game.updateUI();
+                        this.game.addScore(50);
 
                         const thankTexts = ["Thank You!", "Safe at last!", "Cheers, Captain!", "We made it!", "Freedom!"];
                         const randomThank = thankTexts[Math.floor(Math.random() * thankTexts.length)];
@@ -2650,8 +2664,8 @@
                             t.markedForDeletion = true;
                             this.game.spawnExplosion(t.x, t.y, 'BIG');
                             const points = (t instanceof FighterJet) ? 500 : 100;
-                            this.game.score += points;
                             this.game.floatingTexts.push(new FloatingText((t instanceof FighterJet) ? "+500 JET DESTROYED!" : "SPLASH!", t.x, t.y - 20, '#ffcc00'));
+                            this.game.addScore(points);
                         }
                     }
                 });
